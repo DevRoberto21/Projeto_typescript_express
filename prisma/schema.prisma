@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para o porte do cachorro
+enum Porte {
+  PEQUENO
+  MEDIO
+  GRANDE
+}
+
+// Enum para o status do agendamento
+enum AppointmentStatus {
+  AGENDADO
+  CONCLUIDO
+  CANCELADO
+}
+
+// --- Modelos Principais ---
+
+model User {
+  id            String          @id @default(uuid())
+  nome          String
+  email         String          @unique
+  cpf           String          @unique @db.Char(11) // Apenas dígitos
+  idade         Int
+  telefone      String?
+  passwordHash  String          @map("password_hash")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  dogs          Dog[]
+  appointments  Appointment[]
+
+  @@map("users")
+}
+
+model Dog {
+  id          String      @id @default(uuid())
+  nome        String
+  idade       Int         // Validar <= 20 no Zod
+  raca        String      // Validar com dog.ceo
+  porte       Porte
+  ownerId     String      @map("owner_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  owner       User        @relation(fields: [ownerId], references: [id])
+  appointments AppointmentDog[]
+
+  @@map("dogs")
+}
+
+model Service {
+  id          String      @id @default(uuid())
+  name        String      @unique // Ex: Banho, Tosa
+  price       Float
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  appointments AppointmentService[]
+
+  @@map("services")
+}
+
+model Appointment {
+  id          String              @id @default(uuid())
+  date        DateTime            @db.Timestamp(3)
+  status      AppointmentStatus   @default(AGENDADO)
+  userId      String              @map("user_id")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  user        User                @relation(fields: [userId], references: [id])
+  dogs        AppointmentDog[]
+  services    AppointmentService[]
+
+  @@map("appointments")
+}
+
+// --- Tabelas de Junção (Many-to-Many) ---
+
+model AppointmentDog {
+  dogId         String    @map("dog_id")
+  appointmentId String    @map("appointment_id")
+  
+  // Relacionamentos
+  dog           Dog       @relation(fields: [dogId], references: [id])
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@id([dogId, appointmentId])
+  @@map("appointment_dogs")
+}
+
+model AppointmentService {
+  serviceId     String    @map("service_id")
+  appointmentId String    @map("appointment_id")
+  
+  // Relacionamentos
+  service       Service     @relation(fields: [serviceId], references: [id])
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@id([serviceId, appointmentId])
+  @@map("appointment_services")
+}
