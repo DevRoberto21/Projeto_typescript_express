@@ -1,3 +1,7 @@
+Com certeza! Entendido que a formatação das tabelas em Markdown estava sendo perdida. Para garantir que as seções de Tecnologias e Endpoints sejam exibidas corretamente em qualquer editor ou visualizador (como um bloco de código), vou reenviar o README.md completo, colocando o código-fonte das tabelas dentro de blocos Markdown (markdown ... ).
+
+Aqui está a versão final para você copiar e colar:
+
 🐾 Petshop API: Sistema de Agendamento (Backend)
 📌 Visão Geral
 O Petshop API é o backend de um sistema para gerenciamento de clientes e agendamento de serviços (banho e tosa) para cães.
@@ -5,31 +9,35 @@ O Petshop API é o backend de um sistema para gerenciamento de clientes e agenda
 O projeto foi construído com foco na segurança, performance e tipagem rigorosa, utilizando o Prisma para gerenciar o estado do banco de dados (PostgreSQL) e o Zod para validações complexas. A autenticação é feita via JWT.
 
 💻 Tecnologias e Funcionalidades
-Abaixo estão as tecnologias que compõem a arquitetura do projeto e suas finalidades:
+Para garantir a formatação, o código da tabela de tecnologias está no bloco abaixo:
 
-Categoria Tecnologia Uso
-Linguagem TypeScript Garante tipagem estática e segurança em todo o código.
-Framework ExpressJS Criação rápida e robusta dos endpoints da API.
-Banco de Dados PostgreSQL Armazenamento relacional e confiável.
-ORM Prisma Mapeamento Objeto-Relacional e gerenciamento de migrações.
-Validação Zod Validação de schemas rigorosa (incluindo regex para CPF/Telefone BR).
-Segurança JWT + Bcrypt Tokens de acesso e criptografia de senhas.
-Relacionamentos Many-to-Many Agendamentos vinculados a múltiplos cães e múltiplos serviços.
-API Externa dog.ceo Validação assíncrona da existência de raças de cães.
+Markdown
 
-Exportar para as Planilhas
+| Categoria           | Tecnologia       | Uso                                                                   |
+| :------------------ | :--------------- | :-------------------------------------------------------------------- |
+| **Linguagem**       | **TypeScript**   | Garante tipagem estática e segurança em todo o código.                |
+| **Framework**       | **ExpressJS**    | Criação rápida e robusta dos endpoints da API.                        |
+| **Banco de Dados**  | **PostgreSQL**   | Armazenamento relacional e confiável.                                 |
+| **ORM**             | **Prisma**       | Mapeamento Objeto-Relacional e gerenciamento de migrações.            |
+| **Validação**       | **Zod**          | Validação de schemas rigorosa (incluindo regex para CPF/Telefone BR). |
+| **Segurança**       | **JWT + Bcrypt** | Tokens de acesso e criptografia de senhas.                            |
+| **Relacionamentos** | **Many-to-Many** | Agendamentos vinculados a múltiplos cães e múltiplos serviços.        |
+| **API Externa**     | **dog.ceo**      | Validação assíncrona da existência de raças de cães.                  |
+
 🏁 Endpoints e Níveis de Acesso
-Esta tabela detalha todos os endpoints da API, o tipo de operação e o nível de acesso necessário.
+A estrutura de endpoints segue o padrão RESTful, com as definições da tabela mantidas em um bloco de código para evitar problemas de mesclagem:
 
-Recurso Endpoint Operações Nível de Acesso
-Autenticação /auth/register POST Público
-/auth/login POST Público
-Clientes (User) /users GET (All), GET (ID), PUT (Self), DELETE (Self) Autenticado (JWT)
-Cães (Dog) /dogs GET, POST, PUT, DELETE Autenticado (JWT)
-Serviços /services GET (All), GET (ID), POST, PUT, DELETE GETs são Públicos; Outros são Autenticados (JWT)
-Agendamentos /appointments GET, POST, PUT, DELETE Autenticado (JWT)
+Markdown
 
-Exportar para as Planilhas
+| Recurso             | Endpoint         | Operações                                              | Nível de Acesso                                        |
+| :------------------ | :--------------- | :----------------------------------------------------- | :----------------------------------------------------- |
+| **Autenticação**    | `/auth/register` | `POST`                                                 | **Público**                                            |
+|                     | `/auth/login`    | `POST`                                                 | **Público**                                            |
+| **Clientes (User)** | `/users`         | `GET` (All), `GET` (ID), `PUT` (Self), `DELETE` (Self) | Autenticado (JWT)                                      |
+| **Cães (Dog)**      | `/dogs`          | `GET`, `POST`, `PUT`, `DELETE`                         | Autenticado (JWT)                                      |
+| **Serviços**        | `/services`      | `GET` (All), `GET` (ID), `POST`, `PUT`, `DELETE`       | `GET`s são **Públicos**; Outros são Autenticados (JWT) |
+| **Agendamentos**    | `/appointments`  | `GET`, `POST`, `PUT`, `DELETE`                         | Autenticado (JWT)                                      |
+
 Documentação Interativa
 Toda a documentação detalhada da API está disponível na interface Swagger:
 
@@ -91,12 +99,12 @@ npm run dev:all
 ⚡️ Fluxo de Teste Rápido
 Para testar a API, siga este fluxo:
 
-POST /auth/register (Cria o usuário e copia o JWT).
+1. POST /auth/register (Cria o usuário e copia o JWT).
 
-Authorize no Swagger com o token (Ex: Bearer <token>).
+2. Authorize no Swagger com o token (Ex: Bearer <token>).
 
-POST /services (Cria um serviço e copia o ID).
+3. POST /services (Cria um serviço e copia o ID).
 
-POST /dogs (Cria um cão para o seu usuário e copia o ID).
+4. POST /dogs (Cria um cão para o seu usuário e copia o ID).
 
-POST /appointments (Usa o ID do Cão e o ID do Serviço para criar o agendamento Many-to-Many).
+5. POST /appointments (Usa o ID do Cão e o ID do Serviço para criar o agendamento Many-to-Many).
