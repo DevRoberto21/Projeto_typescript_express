@@ -4,14 +4,14 @@
   "description": "Sistema de Petshop (Banho/Tosa) com Express, TypeScript e Prisma.",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only backend/src/index.ts",
+    "build": "tsc --rootDir backend/src --outDir dist",
     "start": "node dist/index.js",
-    "prisma:init": "npx prisma init",
-    "prisma:migrate": "npx prisma migrate dev --name init",
-    "prisma:migrate:prod": "npx prisma migrate deploy",
-    "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio"
+    "prisma:init": "npx prisma init --schema backend/prisma/schema.prisma",
+    "prisma:migrate": "npx prisma migrate dev --name init --schema backend/prisma/schema.prisma",
+    "prisma:migrate:prod": "npx prisma migrate deploy --schema backend/prisma/schema.prisma",
+    "prisma:generate": "npx prisma generate --schema backend/prisma/schema.prisma",
+    "prisma:studio": "npx prisma studio --schema backend/prisma/schema.prisma``"
   },
   "keywords": [
     "express",
