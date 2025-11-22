@@ -1,16 +1,58 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { CreateAppointmentInput, UpdateAppointmentInput } from '../schemas/zod/appointmentSchema';
+// Importar Prisma para ajudar a inferir tipos complexos
+import { Prisma } from '@prisma/client'; 
+
+// Assumindo uma duração padrão de 60 minutos para validação de bloqueio
+const APPOINTMENT_DURATION_MS = 60 * 60 * 1000; 
+
+// 1. Tipo auxiliar para o resultado de findUnique/create (inclui todas as relações)
+type AppointmentWithDogsAndServices = Prisma.AppointmentGetPayload<{
+    include: {
+        user: { select: { id: true, nome: true, email: true } };
+        dogs: { include: { dog: true } };
+        services: { include: { service: true } };
+    }
+}>;
+
+// 2. Tipo auxiliar para o resultado de getAllAppointments (selects customizados)
+type GetAllServicesSelect = { name: true, pricePequeno: true, priceMedio: true, priceGrande: true };
+
+type GetAllAppointmentsResult = Prisma.AppointmentGetPayload<{
+    include: {
+        dogs: { include: { dog: { select: { nome: true, raca: true } } } };
+        services: { include: { service: { select: GetAllServicesSelect } } };
+    }
+}>;
+
 
 /**
- * [POST] /appointments - Cria um novo agendamento, gerencia many-to-many.
+ * [POST] /appointments - Cria um novo agendamento, gerencia many-to-many e valida contra bloqueios de agenda.
  */
 export const createAppointment = async (req: Request<{}, {}, CreateAppointmentInput>, res: Response) => {
-  // CORREÇÃO: Usar dogIds e serviceIds conforme definido no Zod/Tipagem
   const { date, dogIds, serviceIds } = req.body;
   const userId = req.user.id;
 
   try {
+    // 0. VALIDAÇÃO DE CONFLITO COM BLOQUEIOS DE AGENDA
+    const appointmentEnd = new Date(date.getTime() + APPOINTMENT_DURATION_MS);
+
+    const conflictingSlot = await prisma.blockedTimeSlot.findFirst({
+        where: {
+            dateStart: { lt: appointmentEnd },
+            dateEnd: { gt: date },
+        },
+    });
+
+    if (conflictingSlot) {
+        const start = conflictingSlot.dateStart.toISOString().slice(0, 16).replace('T', ' ');
+        const end = conflictingSlot.dateEnd.toISOString().slice(0, 16).replace('T', ' ');
+        return res.status(409).json({ 
+            message: `Conflito de agendamento. O horário de ${start} a ${end} está bloqueado. Motivo: ${conflictingSlot.reason}`,
+        });
+    }
+
     // 1. Validar se todos os Dogs pertencem ao usuário
     const dogs = await prisma.dog.findMany({
       where: {
@@ -38,13 +80,13 @@ export const createAppointment = async (req: Request<{}, {}, CreateAppointmentIn
         date,
         userId,
         dogs: {
-          // CORREÇÃO 7006: Tipagem explícita para dogId (string)
+          // Tipagem explícita para dogId (string)
           create: dogIds.map((dogId: string) => ({
             dog: { connect: { id: dogId } }
           })),
         },
         services: {
-          // CORREÇÃO 7006: Tipagem explícita para serviceId (string)
+          // Tipagem explícita para serviceId (string)
           create: serviceIds.map((serviceId: string) => ({
             service: { connect: { id: serviceId } }
           })),
@@ -56,7 +98,7 @@ export const createAppointment = async (req: Request<{}, {}, CreateAppointmentIn
         dogs: { include: { dog: true } },
         services: { include: { service: true } },
       }
-    });
+    }) as AppointmentWithDogsAndServices; // Força a tipagem de retorno
     
     // Simplifica a resposta, removendo a estrutura da tabela de junção
     const dogsDetails = newAppointment.dogs.map(ad => ad.dog);
@@ -92,7 +134,7 @@ export const getAppointmentById = async (req: Request, res: Response) => {
         dogs: { include: { dog: true } },
         services: { include: { service: true } },
       },
-    });
+    }) as AppointmentWithDogsAndServices | null; // Força a tipagem de retorno
 
     if (!appointment) {
       return res.status(404).json({ message: 'Agendamento não encontrado ou não pertence a você.' });
@@ -125,14 +167,25 @@ export const getAllAppointments = async (req: Request, res: Response) => {
       orderBy: { date: 'asc' },
       include: {
         dogs: { include: { dog: { select: { nome: true, raca: true } } } },
-        services: { include: { service: { select: { name: true, price: true } } } },
+        services: { 
+            include: { 
+                service: { 
+                    select: { 
+                        name: true, 
+                        pricePequeno: true, // CORRIGIDO: Substituindo 'price' pelo novo campo
+                        priceMedio: true,   // CORRIGIDO
+                        priceGrande: true   // CORRIGIDO
+                    } 
+                } 
+            } 
+        },
       }
-    });
+    }) as GetAllAppointmentsResult[]; // Força a tipagem de retorno
 
     // Mapeamento para simplificar a resposta
     const simplifiedAppointments = appointments.map(app => ({
       ...app,
-      dogs: app.dogs.map(ad => ad.dog),
+      dogs: app.dogs.map(ad => ad.dog), 
       services: app.services.map(as => as.service),
     }));
 
@@ -171,9 +224,9 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
             return res.status(400).json({ message: 'Um ou mais IDs de cachorro são inválidos ou não pertencem a você.' });
         }
         transactionOperations.push(
-            prisma.appointmentDog.deleteMany({ where: { appointmentId: id } }),
-            // CORREÇÃO 7006: Tipagem explícita
-            prisma.appointmentDog.createMany({ data: dogIds.map((dogId: string) => ({ dogId, appointmentId: id })) })
+            prisma.appointmentDog.deleteMany({ where: { appointmentId: id } }) as Prisma.PrismaPromise<any>,
+            // Tipagem explícita
+            prisma.appointmentDog.createMany({ data: dogIds.map((dogId: string) => ({ dogId, appointmentId: id })) }) as Prisma.PrismaPromise<any>
         );
     }
 
@@ -184,9 +237,9 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
             return res.status(400).json({ message: 'Um ou mais IDs de serviço são inválidos.' });
         }
         transactionOperations.push(
-            prisma.appointmentService.deleteMany({ where: { appointmentId: id } }),
-            // CORREÇÃO 7006: Tipagem explícita
-            prisma.appointmentService.createMany({ data: serviceIds.map((serviceId: string) => ({ serviceId, appointmentId: id })) })
+            prisma.appointmentService.deleteMany({ where: { appointmentId: id } }) as Prisma.PrismaPromise<any>,
+            // Tipagem explícita
+            prisma.appointmentService.createMany({ data: serviceIds.map((serviceId: string) => ({ serviceId, appointmentId: id })) }) as Prisma.PrismaPromise<any>
         );
     }
 
@@ -203,7 +256,7 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
     const fullAppointment = await prisma.appointment.findUnique({
         where: { id },
         include: { user: { select: { id: true, nome: true, email: true } }, dogs: { include: { dog: true } }, services: { include: { service: true } } }
-    });
+    }) as AppointmentWithDogsAndServices | null;
     
     if (!fullAppointment) throw new Error("Erro ao buscar agendamento após update.");
 

@@ -7,10 +7,11 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_invalido'; 
 
-// Define o formato esperado para o payload do JWT
+// Define o formato esperado para o payload do JWT (ROLE ADICIONADO)
 const jwtPayloadSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
+  role: z.enum(['CLIENTE', 'ADMIN']), // Novo campo obrigatório no JWT
 });
 
 export type AuthUser = z.infer<typeof jwtPayloadSchema>;

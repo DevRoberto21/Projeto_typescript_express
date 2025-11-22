@@ -21,6 +21,12 @@ enum AppointmentStatus {
   CANCELADO
 }
 
+// Enum para o perfil do usuário (ADICIONADO no passo anterior)
+enum UserRole {
+  CLIENTE
+  ADMIN
+}
+
 // --- Modelos Principais ---
 
 model User {
@@ -31,6 +37,7 @@ model User {
   idade         Int
   telefone      String?
   passwordHash  String          @map("password_hash")
+  role          UserRole        @default(CLIENTE) // NOVO CAMPO
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
@@ -61,7 +68,9 @@ model Dog {
 model Service {
   id          String      @id @default(uuid())
   name        String      @unique // Ex: Banho, Tosa
-  price       Float
+  pricePequeno Float     @map("price_pequeno") @default(0.00)// NOVO CAMPO
+  priceMedio   Float     @map("price_medio") @default(0.00)   // NOVO CAMPO
+  priceGrande  Float     @map("price_grande") @default(0.00) // NOVO CAMPO
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -86,6 +95,19 @@ model Appointment {
 
   @@map("appointments")
 }
+
+
+model BlockedTimeSlot {
+  id          String      @id @default(uuid())
+  dateStart   DateTime    @map("date_start")
+  dateEnd     DateTime    @map("date_end")
+  reason      String      // Motivo do bloqueio (ex: Almoço, Manutenção, Feriado)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@map("blocked_time_slots")
+}
+
 
 // --- Tabelas de Junção (Many-to-Many) ---
 

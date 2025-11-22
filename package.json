@@ -4,7 +4,7 @@
   "description": "Sistema de Petshop (Banho/Tosa) com Express, TypeScript e Prisma.",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only backend/src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --project backend/tsconfig.json backend/src/index.ts",
     "build": "tsc --rootDir backend/src --outDir dist",
     "start": "node dist/index.js",
     "prisma:init": "npx prisma init --schema backend/prisma/schema.prisma",

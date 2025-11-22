@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+    "module": "NodeNext", // ALTERADO para o padrão moderno
+    "moduleResolution": "NodeNext", // ADICIONADO para resolver o conflito
     "rootDir": "src",
     "outDir": "dist",
     "esModuleInterop": true,

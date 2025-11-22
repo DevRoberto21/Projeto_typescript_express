@@ -2,6 +2,8 @@ import { Request,Response } from "express";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
+// ADICIONE A IMPORTAÇÃO DOS TIPOS DO PRISMA
+import { User, UserRole } from '@prisma/client'; 
 import {RegisterInput,LoginInput} from '../schemas/zod/userSchema';
 import dotenv from 'dotenv';
 
@@ -9,9 +11,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_invalido';//Usa o fallback, mas ele deve estar no .env
 
-const generateToken = (userId:string,email:string) =>{
+// generateToken AGORA INCLUI O ROLE e usa o tipo UserRole
+const generateToken = (userId:string, email:string, role: UserRole) =>{
     return jwt.sign(
-        {id:userId,email:email},
+        {id:userId, email:email, role: role}, // ROLE ADICIONADO NO PAYLOAD
         JWT_SECRET,
         {expiresIn:'1d'}// Token válido por 1 dia
     );
@@ -36,10 +39,10 @@ export const register = async (req: Request<{}, {}, RegisterInput>, res: Respons
         ...userData,
         passwordHash,
       },
-    });
+    }) as User; // FORÇA O TYPE CASTING
 
-    // 3. Gera e retorna o token
-    const token = generateToken(user.id, user.email);
+    // 3. Gera e retorna o token, USANDO O user.role
+    const token = generateToken(user.id, user.email, user.role); 
 
     // Retorna dados do usuário (exceto passwordHash) e o token
     const { passwordHash: _, ...userWithoutPassword } = user;
@@ -78,17 +81,20 @@ export const login = async (req: Request<{}, {}, LoginInput>, res: Response) => 
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
+    // Usamos 'user as User' para garantir que o TypeScript reconheça a tipagem completa, incluindo 'role'
+    const typedUser = user as User;
+
     // 2. Compara a senha informada com o hash (bcrypt.compare)
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(password, typedUser.passwordHash);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    // 3. Gera e retorna o token
-    const token = generateToken(user.id, user.email);
+    // 3. Gera e retorna o token, USANDO O user.role
+    const token = generateToken(typedUser.id, typedUser.email, typedUser.role);
 
-    const { passwordHash: _, ...userWithoutPassword } = user;
+    const { passwordHash: _, ...userWithoutPassword } = typedUser;
     return res.status(200).json({
       message: 'Login realizado com sucesso!',
       user: userWithoutPassword,

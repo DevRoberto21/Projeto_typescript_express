@@ -1,0 +1,1 @@
+import React from 'react'; export const Register: React.FC = () => (<div>Register Page</div>);

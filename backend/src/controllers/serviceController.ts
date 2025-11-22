@@ -6,11 +6,11 @@ import { CreateServiceInput, UpdateServiceInput } from '../schemas/zod/serviceSc
  * [POST] /services - Cria um novo serviço.
  */
 export const createService = async (req: Request<{}, {}, CreateServiceInput>, res: Response) => {
-  const { name, price } = req.body;
+  const { name, pricePequeno, priceMedio, priceGrande } = req.body;
 
   try {
     const service = await prisma.service.create({
-      data: { name, price },
+      data: { name, pricePequeno, priceMedio, priceGrande }, // ATUALIZADO
     });
 
     return res.status(201).json({ message: 'Serviço criado com sucesso!', service });
@@ -66,7 +66,7 @@ export const getAllServices = async (req: Request, res: Response) => {
  */
 export const updateService = async (req: Request<{ id: string }, {}, UpdateServiceInput>, res: Response) => {
   const { id } = req.params;
-  const updatedData = req.body;
+  const updatedData = req.body; 
 
   try {
     const service = await prisma.service.update({
