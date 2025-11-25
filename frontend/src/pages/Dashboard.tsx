@@ -2,6 +2,37 @@ import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 
+// Estilos básicos para o componente (necessário para o linter e JSX)
+const cardStyle: React.CSSProperties = {
+  border: '1px solid #e0e0e0',
+  padding: '15px',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+};
+
+const linkStyle: React.CSSProperties = {
+  display: 'inline-block',
+  marginTop: '10px',
+  padding: '8px 15px',
+  backgroundColor: '#007bff',
+  color: 'white',
+  textDecoration: 'none',
+  borderRadius: '4px',
+};
+
+const adminCardStyle: React.CSSProperties = {
+  ...cardStyle,
+  backgroundColor: '#f8f9fa',
+  border: '1px solid #ffc107',
+};
+
+const adminLinkStyle: React.CSSProperties = {
+  ...linkStyle,
+  backgroundColor: '#ffc107',
+  color: '#333',
+};
+
+
 export const Dashboard: React.FC = () => {
   const { user, isAdmin, logout } = useAuth();
 
@@ -10,7 +41,9 @@ export const Dashboard: React.FC = () => {
     return <div>Carregando ou Não Autenticado...</div>; 
   }
 
-  const welcomeMessage = `Bem-vindo, ${user.email}! Seu perfil é: ${user.role}.`;
+  // Lógica de saudação personalizada: pega o primeiro nome
+  const firstName = user.nome ? user.nome.split(' ')[0] : 'Usuário';
+  const welcomeMessage = `Bem-vindo(a), Sr(a). ${firstName}! Seu perfil é: ${user.role}.`; // MENSAGEM PERSONALIZADA
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
@@ -75,34 +108,4 @@ export const Dashboard: React.FC = () => {
       )}
     </div>
   );
-};
-
-// Estilos básicos para o componente
-const cardStyle: React.CSSProperties = {
-  border: '1px solid #e0e0e0',
-  padding: '15px',
-  borderRadius: '8px',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-};
-
-const linkStyle: React.CSSProperties = {
-  display: 'inline-block',
-  marginTop: '10px',
-  padding: '8px 15px',
-  backgroundColor: '#007bff',
-  color: 'white',
-  textDecoration: 'none',
-  borderRadius: '4px',
-};
-
-const adminCardStyle: React.CSSProperties = {
-  ...cardStyle,
-  backgroundColor: '#f8f9fa',
-  border: '1px solid #ffc107',
-};
-
-const adminLinkStyle: React.CSSProperties = {
-  ...linkStyle,
-  backgroundColor: '#ffc107',
-  color: '#333',
 };

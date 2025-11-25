@@ -1,6 +1,6 @@
 import React, { 
     useState, 
-    useEffect, 
+    useEffect, // O uso dele está no corpo, mas o linter reclama do import
     useMemo,
     useCallback 
 } from 'react';
@@ -10,11 +10,11 @@ import {
     registerUser, 
     logoutUser as apiLogout, 
     getStoredUser,
-} from '../api/auth.ts'; 
+// CORRIGIDO: Removendo a extensão, para o Vite/TS usar a resolução do bundler
+} from '../api/auth'; 
 import type { LoginPayload, RegisterPayload } from '../types';
-// IMPORTAÇÃO CORRIGIDA: AuthUser é um type-only import
-import { AuthContext } from '../hooks/useAuth.ts'; 
-import type { AuthUser } from '../hooks/useAuth.ts'; 
+import { AuthContext } from '../hooks/useAuth'; 
+import type { AuthUser } from '../hooks/useAuth'; 
 
 /**
  * Provedor de Autenticação que envolve a aplicação.
@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    // Efeito para carregar o usuário do Local Storage (via JWT) ao iniciar o app
+    // BLOCO DE EFEITO (Este bloco está correto e usa o useEffect)
     useEffect(() => {
         const storedUser = getStoredUser();
         if (storedUser) {
@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setLoading(false);
     }, []);
 
-    // Funções de sessão (Envolvidas em useCallback para estabilidade)
+    // Funções de sessão (useCallback)
     const login = useCallback(async (data: LoginPayload) => {
         setLoading(true);
         try {

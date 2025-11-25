@@ -9,6 +9,7 @@ interface AuthUser {
     id: string;
     email: string;
     role: UserRole;
+    nome: string
 }
 
 // Interface para o Contexto

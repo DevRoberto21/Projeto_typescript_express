@@ -2,25 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-// CORRIGIDO: Use 'import type' para o tipo, e import normal para a função
-import { fetchDogBreedStatistics } from '../api/stats';
-import type { BreedStatistic } from '../api/stats';
+// CORRIGIDO: Use 'import type' para o tipo, e import normal para a função. Adicionando '.ts' ao caminho do API.
+import { fetchDogBreedStatistics } from '../api/stats.ts'; 
+import type { BreedStatistic } from '../api/stats.ts';
 
 // Registrar os componentes do Chart.js para serem usados
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// Type Guard para tratar erros de Axios (sem usar 'any' no corpo da função)
+// Type Guard para tratar erros de Axios (necessário para o catch)
 interface AxiosErrorData { response?: { data?: { message?: string } } }
 const isAxiosErrorResponse = (error: unknown): error is AxiosErrorData => (error as AxiosErrorData)?.response !== undefined;
 
 
 export const AdminStats: React.FC = () => {
-    // CORRIGIDO: Removendo 'user' pois não é usado diretamente, resolvendo o 'no-unused-vars'
+    // CORRIGIDO: Desestruturando apenas o que será usado.
     const { isAdmin } = useAuth(); 
     const [stats, setStats] = useState<BreedStatistic[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // O useEffect agora tem a lógica completa, eliminando os warnings de 'unused'
     useEffect(() => {
         if (!isAdmin) {
             setLoading(false);
@@ -44,7 +45,7 @@ export const AdminStats: React.FC = () => {
         };
 
         loadStats();
-    }, [isAdmin]);
+    }, [isAdmin]); // Dependência adicionada
 
     if (!isAdmin && !loading) {
         return <div style={errorStyle}>❌ Acesso negado. Esta página requer privilégios de Administrador.</div>;

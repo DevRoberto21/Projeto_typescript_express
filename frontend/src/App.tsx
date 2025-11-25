@@ -7,6 +7,10 @@ import { Dashboard } from './pages/Dashboard';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminStats } from './pages/AdminStats'; 
 import { AdminSchedule } from './pages/AdminSchedule';
+import { DogManagement } from './pages/DogManagement'; 
+import { AppointmentHistory } from './pages/AppointmentHistory';
+import { NewAppointment } from './pages/NewAppointments';
+
 
 function App() {
   return (
@@ -21,10 +25,11 @@ function App() {
           {/* Rotas Privadas (Protegidas) */}
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           
-          {/* Rotas de Cliente (Exemplo) */}
-          <Route path="/dogs" element={<PrivateRoute><div>Gerenciamento de Cães...</div></PrivateRoute>} />
-          <Route path="/appointments" element={<PrivateRoute><div>Histórico de Agendamentos...</div></PrivateRoute>} />
-          <Route path="/appointments/new" element={<PrivateRoute><div>Novo Agendamento...</div></PrivateRoute>} />
+          {/* Rotas de Cliente (Funcionais) */}
+          {/* CORREÇÃO: Usando o componente DogManagement */}
+          <Route path="/dogs" element={<PrivateRoute><DogManagement /></PrivateRoute>} />
+          <Route path="/appointments" element={<PrivateRoute><AppointmentHistory /></PrivateRoute>} />
+          <Route path="/appointments/new" element={<PrivateRoute><NewAppointment /></PrivateRoute>} />
 
           {/* Rotas de Admin (Exclusivas) */}
           <Route path="/admin/stats" element={<PrivateRoute><AdminStats /></PrivateRoute>} />

@@ -94,3 +94,19 @@ export interface CreateAppointmentPayload {
     dogIds: string[];
     serviceIds: string[];
 }
+
+
+export interface BlockedTimeSlot {
+    id: string;
+    dateStart: string; // ISO 8601 string do backend
+    dateEnd: string;   // ISO 8601 string do backend
+    reason: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface CreateBlockedTimeSlotPayload {
+    dateStart: string;
+    dateEnd: string;
+    reason: string;
+}
