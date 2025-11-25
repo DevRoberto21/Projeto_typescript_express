@@ -23,5 +23,10 @@ export const dogSchema = z.object({
 });
 
 export const createDogSchema = dogSchema.required();
+
+// NOVO: Define um esquema de atualização onde todos os campos são opcionais.
+export const updateDogSchema = dogSchema.partial(); 
+
 export type CreateDogInput = z.infer<typeof createDogSchema>;
-export type UpdateDogInput = z.infer<typeof dogSchema>;
+// ATUALIZADO: Usamos o novo esquema parcial para o input de atualização.
+export type UpdateDogInput = z.infer<typeof updateDogSchema>;

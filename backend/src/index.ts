@@ -11,6 +11,7 @@ import dogRoutes from './routes/dogRoutes';
 import serviceRoutes from './routes/serviceRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
 import blockedTimeSlotRoutes from './routes/blockedTimeSlotRoutes'; // NOVO IMPORT
+import statsRoutes from './routes/statsRoutes'; // <== ADICIONADO
 import prisma from './prisma/client';
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.use('/dogs', dogRoutes);
 app.use('/services', serviceRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/admin/blocked-slots', blockedTimeSlotRoutes); // NOVA ROTA DE ADMIN
+app.use('/admin/stats', statsRoutes); // <== Rota para Estatísticas de Admin ADICIONADA AQUI
 
 // --- Rota do Swagger ---
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

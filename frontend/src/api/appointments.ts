@@ -1,4 +1,4 @@
-import api from './client';
+import api from './client.ts';
 import type { Service, Appointment, CreateAppointmentPayload } from '../types';
 
 // --- NOVOS TIPOS E FUNÇÕES ---

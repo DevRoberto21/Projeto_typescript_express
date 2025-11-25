@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
-import { fetchMyDogs, createDog, deleteDog, availablePortes } from "../api/dogs";
+import { fetchMyDogs, createDog, deleteDog, updateDog, availablePortes } from "../api/dogs.ts"; 
 import { fetchAllBreeds } from "../api/externalDogApi";
 
-import type { Dog, CreateDogPayload } from "../types";
+import type { Dog, CreateDogPayload, UpdateDogPayload } from "../types"; 
 
 // -----------------------------------------------------------
 // Type Guard para tratar erros de Axios
@@ -29,15 +29,21 @@ export const DogManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado para o formulário de CRIAÇÃO
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
   const [formData, setFormData] = useState<CreateDogPayload>({
     nome: "",
     idade: 1,
     raca: "",
     porte: "PEQUENO",
   });
+  
+  // NOVO ESTADO: Controla qual cão está sendo editado (null se nenhum)
+  const [editingDog, setEditingDog] = useState<Dog | null>(null);
+  // NOVO ESTADO: Dados do formulário de EDIÇÃO (parcial)
+  const [editFormData, setEditFormData] = useState<UpdateDogPayload>({});
+
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Autocomplete
   const [breedSuggestions, setBreedSuggestions] = useState<string[]>([]);
@@ -77,41 +83,20 @@ export const DogManagement: React.FC = () => {
   }, [loadDogs]);
 
   // -----------------------------------------------------------
-  // Deletar Cão
+  // Manipuladores Comuns (Criação e Edição)
   // -----------------------------------------------------------
-  const handleDeleteDog = useCallback(async (dogId: string) => {
-    if (!window.confirm("Tem certeza que deseja deletar este cão?"))
-      return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      await deleteDog(dogId);
-      setDogs((prev) => prev.filter((d) => d.id !== dogId));
-    } catch (err: unknown) {
-      let message = "Erro ao deletar o cão.";
-
-      if (isAxiosErrorResponse(err)) {
-        message = err.response?.data?.message || message;
-      }
-      setError(message);
-    } finally {
-      setLoading(false);
+  const handleBreedChange = (e: React.ChangeEvent<HTMLInputElement>, isEditingForm: boolean = false) => {
+    const value = e.target.value.toLowerCase();
+    
+    if (isEditingForm) {
+        setEditFormData((prev: UpdateDogPayload) => ({ ...prev, raca: value }));
+    } else {
+        setFormData((prev: CreateDogPayload) => ({ ...prev, raca: value }));
     }
-  }, []);
-
-  // -----------------------------------------------------------
-  // Autocomplete + Form
-  // -----------------------------------------------------------
-  const handleBreedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    setFormData((prev) => ({ ...prev, raca: value.toLowerCase() }));
 
     if (value.length >= 3 && allBreeds.length > 0) {
       const filtered = allBreeds.filter((breed) =>
-        breed.includes(value.toLowerCase())
+        breed.includes(value)
       );
       setBreedSuggestions(filtered.slice(0, 10));
     } else {
@@ -119,17 +104,30 @@ export const DogManagement: React.FC = () => {
     }
   };
 
+  // CORREÇÃO TS: Tipagem explícita de 'prev' para evitar erro 'any' implícito
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    isEditingForm: boolean = false
   ) => {
     const { name, value } = e.target;
+    const numericValue = name === "idade" ? parseInt(value, 10) : value;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "idade" ? parseInt(value, 10) : value,
-    }));
+    if (isEditingForm) {
+        setEditFormData((prev: UpdateDogPayload) => ({ 
+            ...prev,
+            [name]: numericValue,
+        }));
+    } else {
+        setFormData((prev: CreateDogPayload) => ({ 
+            ...prev,
+            [name]: numericValue,
+        }));
+    }
   };
 
+  // -----------------------------------------------------------
+  // Lógica de Criação
+  // -----------------------------------------------------------
   const handleCreateDog = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -144,16 +142,13 @@ export const DogManagement: React.FC = () => {
 
       const newDog = await createDog(formData);
       setDogs((prev) => [...prev, newDog]);
-
       setSuccessMessage(`Cachorro "${newDog.nome}" cadastrado com sucesso!`);
-
-      setFormData({
-        nome: "",
-        idade: 1,
-        raca: "",
-        porte: "PEQUENO",
-      });
+      
+      // Resetar formulário
+      setFormData({ nome: "", idade: 1, raca: "", porte: "PEQUENO" });
       setBreedSuggestions([]);
+      setIsFormVisible(false); 
+      
     } catch (err: unknown) {
       let message = "Erro ao cadastrar o cão.";
 
@@ -165,6 +160,94 @@ export const DogManagement: React.FC = () => {
       setLoading(false);
     }
   };
+
+
+  // -----------------------------------------------------------
+  // Lógica de Edição
+  // -----------------------------------------------------------
+  const handleStartEdit = (dog: Dog) => {
+    setEditingDog(dog);
+    // Preenche o formulário de edição com os dados atuais do cão
+    setEditFormData({
+        nome: dog.nome,
+        idade: dog.idade,
+        raca: dog.raca,
+        porte: dog.porte,
+    });
+    // Esconde a criação
+    setIsFormVisible(false);
+    setSuccessMessage(null);
+    setError(null);
+  };
+  
+  const handleUpdateDog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDog) return;
+    
+    setError(null);
+    setLoading(true);
+
+    try {
+        // Envia apenas os campos que foram alterados
+        const updatedData: UpdateDogPayload = {};
+        
+        // Verifica e adiciona apenas os campos que mudaram (com checagem de tipo/valor)
+        if (editFormData.nome !== editingDog.nome) updatedData.nome = editFormData.nome;
+        if (editFormData.idade !== editingDog.idade) updatedData.idade = editFormData.idade;
+        if (editFormData.raca !== editingDog.raca) updatedData.raca = editFormData.raca;
+        if (editFormData.porte !== editingDog.porte) updatedData.porte = editFormData.porte;
+        
+        if (Object.keys(updatedData).length === 0) {
+            setEditingDog(null);
+            setLoading(false);
+            return; // Nada para atualizar
+        }
+
+        const updatedDog = await updateDog(editingDog.id, updatedData);
+
+        // Atualiza a lista de cães no estado
+        setDogs(prev => prev.map(d => d.id === updatedDog.id ? updatedDog : d));
+        setSuccessMessage(`Cachorro "${updatedDog.nome}" atualizado com sucesso!`);
+        setEditingDog(null); // Sai do modo de edição
+
+    } catch (err: unknown) {
+        let message = "Erro ao atualizar o cão.";
+
+        if (isAxiosErrorResponse(err)) {
+          message = err.response?.data?.message || message;
+        }
+        setError(message);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+
+  // -----------------------------------------------------------
+  // Lógica de Deleção
+  // -----------------------------------------------------------
+  const handleDeleteDog = useCallback(async (dogId: string) => {
+    if (!window.confirm("Tem certeza que deseja deletar este cão? Isso pode afetar agendamentos passados."))
+      return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await deleteDog(dogId);
+      setDogs((prev) => prev.filter((d) => d.id !== dogId));
+      setSuccessMessage("Cão deletado com sucesso!");
+    } catch (err: unknown) {
+      let message = "Erro ao deletar o cão.";
+
+      if (isAxiosErrorResponse(err)) {
+        message = err.response?.data?.message || message;
+      }
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const firstName = user?.nome ? user.nome.split(" ")[0] : "Cliente";
 
@@ -180,7 +263,7 @@ export const DogManagement: React.FC = () => {
   return (
     <div style={containerStyle}>
       <h1>Gerenciamento de Cães 🐶</h1>
-      <p>Olá, {firstName}! Cadastre e gerencie seus cães.</p>
+      <p>Olá, {firstName}! Cadastre, edite e gerencie seus cães.</p>
 
       {error && <div style={errorStyle}>Erro: {error}</div>}
 
@@ -188,10 +271,11 @@ export const DogManagement: React.FC = () => {
         style={toggleButtonStyle}
         onClick={() => {
           setIsFormVisible((prev) => !prev);
+          setEditingDog(null); // Sai do modo de edição
           setSuccessMessage(null);
         }}
       >
-        {isFormVisible ? "Ocultar Formulário" : "Adicionar Novo Cão"}
+        {isFormVisible ? "Ocultar Formulário de Criação" : "Adicionar Novo Cão"}
       </button>
 
       {successMessage && (
@@ -208,8 +292,99 @@ export const DogManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Formulário */}
-      {isFormVisible && !successMessage && (
+      {/* Formulário de EDIÇÃO */}
+      {editingDog && (
+        <>
+          <h3 style={{color: '#007bff'}}>Editando: {editingDog.nome}</h3>
+          <form onSubmit={handleUpdateDog} style={formContainerStyle}>
+            {/* Campos de Edição */}
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Nome:</label>
+              <input
+                name="nome"
+                value={editFormData.nome}
+                onChange={(e) => handleInputChange(e, true)}
+                required
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Raça com Autocomplete (Edição) */}
+            <div style={{ ...formGroupStyle, position: "relative" }}>
+              <label style={labelStyle}>Raça:</label>
+              <input
+                name="raca"
+                value={editFormData.raca}
+                onChange={(e) => handleBreedChange(e, true)}
+                required
+                autoComplete="off"
+                style={inputStyle}
+              />
+              {/* Sugestões de raça... */}
+              {breedSuggestions.length > 0 && (
+                <ul style={suggestionListStyle}>
+                  {breedSuggestions.map((breed) => (
+                    <li
+                      key={breed}
+                      style={suggestionItemStyle}
+                      onClick={() => {
+                        setEditFormData((prev: UpdateDogPayload) => ({ ...prev, raca: breed }));
+                        setBreedSuggestions([]);
+                      }}
+                    >
+                      {breed}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Idade:</label>
+              <input
+                type="number"
+                name="idade"
+                value={editFormData.idade}
+                onChange={(e) => handleInputChange(e, true)}
+                min={1}
+                max={20}
+                required
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Porte:</label>
+              <select
+                name="porte"
+                value={editFormData.porte}
+                onChange={(e) => handleInputChange(e, true)}
+                style={inputStyle}
+              >
+                {availablePortes.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Botões de Ação */}
+            <button type="submit" style={submitButtonStyle}>
+              Salvar Alterações
+            </button>
+            <button 
+                type="button" 
+                onClick={() => setEditingDog(null)} 
+                style={cancelEditButtonStyle}
+            >
+                Cancelar Edição
+            </button>
+          </form>
+        </>
+      )}
+
+
+      {/* Formulário de CRIAÇÃO */}
+      {isFormVisible && !successMessage && !editingDog && (
         <>
           <h3>Novo Cão</h3>
 
@@ -227,7 +402,7 @@ export const DogManagement: React.FC = () => {
               />
             </div>
 
-            {/* Raça com Autocomplete */}
+            {/* Raça com Autocomplete (Criação) */}
             <div style={{ ...formGroupStyle, position: "relative" }}>
               <label style={labelStyle}>Raça:</label>
               <input
@@ -247,7 +422,7 @@ export const DogManagement: React.FC = () => {
                       key={breed}
                       style={suggestionItemStyle}
                       onClick={() => {
-                        setFormData((prev) => ({ ...prev, raca: breed }));
+                        setFormData((prev: CreateDogPayload) => ({ ...prev, raca: breed }));
                         setBreedSuggestions([]);
                       }}
                     >
@@ -294,7 +469,7 @@ export const DogManagement: React.FC = () => {
           </form>
         </>
       )}
-
+      
       {/* Lista de Cães */}
       <h2>Meus Cães Cadastrados ({dogs.length})</h2>
 
@@ -308,8 +483,15 @@ export const DogManagement: React.FC = () => {
             <p>Porte: {dog.porte}</p>
 
             <button
+                onClick={() => handleStartEdit(dog)}
+                disabled={loading || !!editingDog}
+                style={editButtonStyle}
+            >
+                Editar
+            </button>
+            <button
               onClick={() => handleDeleteDog(dog.id)}
-              disabled={loading}
+              disabled={loading || !!editingDog}
               style={deleteButtonStyle}
             >
               Deletar
@@ -380,6 +562,16 @@ const submitButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const cancelEditButtonStyle: React.CSSProperties = {
+    gridColumn: "span 2",
+    padding: "10px",
+    backgroundColor: "#6c757d",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+  };
+
 const toggleButtonStyle: React.CSSProperties = {
   marginBottom: "20px",
   padding: "10px 20px",
@@ -423,6 +615,8 @@ const dogCardStyle: React.CSSProperties = {
   borderRadius: "8px",
   backgroundColor: "#f0f8ff",
   boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+  display: 'flex',
+  flexDirection: 'column',
 };
 
 const deleteButtonStyle: React.CSSProperties = {
@@ -434,6 +628,16 @@ const deleteButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   marginTop: "10px",
 };
+
+const editButtonStyle: React.CSSProperties = {
+    padding: "5px 10px",
+    backgroundColor: "var(--color-primary)",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    marginTop: "10px",
+  };
 
 const suggestionListStyle: React.CSSProperties = {
   position: "absolute",
@@ -455,4 +659,3 @@ const suggestionItemStyle: React.CSSProperties = {
   cursor: "pointer",
   borderBottom: "1px solid #eee",
 };
-

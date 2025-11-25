@@ -1,3 +1,5 @@
+// Caminho: frontend/src/pages/Dashboard.tsx
+
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
@@ -59,28 +61,32 @@ export const Dashboard: React.FC = () => {
       
       <hr />
 
-      {/* --- Seção Comum (CLIENTE e ADMIN) --- */}
-      
-      <h2>Gerenciamento de Cliente</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-        <div style={cardStyle}>
-          <h3>Meus Cães</h3>
-          <p>Adicione, edite ou visualize seus cães.</p>
-          <Link to="/dogs" style={linkStyle}>Gerenciar Cães</Link>
-        </div>
-        
-        <div style={cardStyle}>
-          <h3>Agendar Serviço</h3>
-          <p>Crie um novo agendamento ou veja os próximos.</p>
-          <Link to="/appointments/new" style={linkStyle}>Novo Agendamento</Link>
-        </div>
-        
-        <div style={cardStyle}>
-          <h3>Meus Agendamentos</h3>
-          <p>Visualize o histórico e status de seus serviços.</p>
-          <Link to="/appointments" style={linkStyle}>Ver Histórico</Link>
-        </div>
-      </div>
+      {/* --- Seção Comum (CLIENTE) --- */}
+      {/* CORREÇÃO: Mostrar esta seção SOMENTE se o usuário NÃO for Admin */}
+      {!isAdmin && (
+        <>
+          <h2>Gerenciamento de Cliente</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+            <div style={cardStyle}>
+              <h3>Meus Cães</h3>
+              <p>Adicione, edite ou visualize seus cães.</p>
+              <Link to="/dogs" style={linkStyle}>Gerenciar Cães</Link>
+            </div>
+            
+            <div style={cardStyle}>
+              <h3>Agendar Serviço</h3>
+              <p>Crie um novo agendamento ou veja os próximos.</p>
+              <Link to="/appointments/new" style={linkStyle}>Novo Agendamento</Link>
+            </div>
+            
+            <div style={cardStyle}>
+              <h3>Meus Agendamentos</h3>
+              <p>Visualize o histórico e status de seus serviços.</p>
+              <Link to="/appointments" style={linkStyle}>Ver Histórico</Link>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* --- Seção Exclusiva para ADMIN --- */}
       

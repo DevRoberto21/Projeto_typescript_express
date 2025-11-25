@@ -7,6 +7,11 @@ export const serviceSchema = z.object({
     priceGrande: z.number().min(0.01,'Preço Grande deve ser um número positivo.'),
 });
 
-// Os tipos de entrada são baseados no novo esquema
+// NOVO: Esquema para atualização. 
+// Usando .partial() resolve o erro de "name: Required" ao atualizar apenas os preços,
+// e permite que qualquer campo seja atualizado individualmente.
+export const updateServiceSchema = serviceSchema.partial();
+
+// Tipos de entrada
 export type CreateServiceInput = z.infer<typeof serviceSchema>;
-export type UpdateServiceInput = z.infer<typeof serviceSchema>;
+export type UpdateServiceInput = z.infer<typeof updateServiceSchema>; // ATUALIZADO

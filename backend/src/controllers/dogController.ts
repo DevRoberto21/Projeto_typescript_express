@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { CreateDogInput, UpdateDogInput } from '../schemas/zod/dogSchema';
+import { Prisma } from '@prisma/client'; // Importar Prisma para a transação
 
 /**
  * [POST] /dogs - Cadastra um novo cão para o usuário logado.
@@ -141,13 +142,21 @@ export const deleteDog = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Você não tem permissão para deletar este cachorro.' });
     }
 
-    // 2. Deleta
-    await prisma.dog.delete({
-      where: { id },
-    });
+    // 2. CORREÇÃO: Deleta em transação para remover referências (Foreign Keys) primeiro
+    await prisma.$transaction([
+        // Remove todos os vínculos com agendamentos (tabela de junção)
+        prisma.appointmentDog.deleteMany({
+            where: { dogId: id }
+        }) as Prisma.PrismaPromise<any>,
+        // Remove o Cão
+        prisma.dog.delete({
+            where: { id },
+        }) as Prisma.PrismaPromise<any>
+    ]);
 
     return res.status(204).send();
   } catch (error: any) {
+    // O erro P2003 (Foreign Key) será resolvido pela transação.
     if (error.code === 'P2025') {
       return res.status(404).json({ message: 'Cachorro não encontrado.' });
     }

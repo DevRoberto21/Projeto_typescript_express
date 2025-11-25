@@ -1,4 +1,4 @@
-import api from './client';
+import api from './client.ts'; // <== CORRIGIDO: Adicionada a extensão .ts
 import type { Service } from '../types';
 
 export interface UpdateServicePayload {

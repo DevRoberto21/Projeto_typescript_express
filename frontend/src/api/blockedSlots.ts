@@ -1,4 +1,4 @@
-import api from './client';
+import api from './client.ts';
 import type { BlockedTimeSlot, CreateBlockedTimeSlotPayload } from '../types';
 
 /**
