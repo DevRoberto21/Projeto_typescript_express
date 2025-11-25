@@ -2,21 +2,20 @@ import { Request,Response } from "express";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
-// ADICIONE A IMPORTAÇÃO DOS TIPOS DO PRISMA
 import { User, UserRole } from '@prisma/client'; 
 import {RegisterInput,LoginInput} from '../schemas/zod/userSchema';
 import dotenv from 'dotenv';
 
 
 dotenv.config();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_invalido';//Usa o fallback, mas ele deve estar no .env
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_invalido';
 
-// generateToken AGORA INCLUI O ROLE e usa o tipo UserRole
-const generateToken = (userId:string, email:string, role: UserRole) =>{
+// generateToken AGORA INCLUI O NOME
+const generateToken = (userId:string, email:string, role: UserRole, nome: string) =>{ // NOME ADICIONADO AQUI
     return jwt.sign(
-        {id:userId, email:email, role: role}, // ROLE ADICIONADO NO PAYLOAD
+        {id:userId, email:email, role: role, nome: nome}, // NOME ADICIONADO AO PAYLOAD
         JWT_SECRET,
-        {expiresIn:'1d'}// Token válido por 1 dia
+        {expiresIn:'1d'}
     );
 };
     
@@ -39,10 +38,10 @@ export const register = async (req: Request<{}, {}, RegisterInput>, res: Respons
         ...userData,
         passwordHash,
       },
-    }) as User; // FORÇA O TYPE CASTING
+    }) as User; 
 
-    // 3. Gera e retorna o token, USANDO O user.role
-    const token = generateToken(user.id, user.email, user.role); 
+    // 3. Gera e retorna o token, USANDO O user.role E user.nome
+    const token = generateToken(user.id, user.email, user.role, user.nome); // PASSANDO user.nome
 
     // Retorna dados do usuário (exceto passwordHash) e o token
     const { passwordHash: _, ...userWithoutPassword } = user;
@@ -91,8 +90,8 @@ export const login = async (req: Request<{}, {}, LoginInput>, res: Response) => 
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    // 3. Gera e retorna o token, USANDO O user.role
-    const token = generateToken(typedUser.id, typedUser.email, typedUser.role);
+    // 3. Gera e retorna o token, USANDO O user.role E user.nome
+    const token = generateToken(typedUser.id, typedUser.email, typedUser.role, typedUser.nome); // PASSANDO typedUser.nome
 
     const { passwordHash: _, ...userWithoutPassword } = typedUser;
     return res.status(200).json({
