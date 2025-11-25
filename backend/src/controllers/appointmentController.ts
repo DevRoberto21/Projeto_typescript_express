@@ -1,13 +1,19 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { CreateAppointmentInput, UpdateAppointmentInput } from '../schemas/zod/appointmentSchema';
-// Importar Prisma para ajudar a inferir tipos complexos
-import { Prisma } from '@prisma/client'; 
+import { Prisma } from '@prisma/client';
 
-// Assumindo uma duração padrão de 60 minutos para validação de bloqueio
-const APPOINTMENT_DURATION_MS = 60 * 60 * 1000; 
+// Duração padrão: 60 minutos
+const APPOINTMENT_DURATION_MS = 60 * 60 * 1000;
 
-// 1. Tipo auxiliar para o resultado de findUnique/create (inclui todas as relações)
+// Tipos auxiliares
+type GetAllServicesSelect = { name: true, pricePequeno: true, priceMedio: true, priceGrande: true };
+type GetAllAppointmentsResult = Prisma.AppointmentGetPayload<{
+    include: {
+        dogs: { include: { dog: { select: { nome: true, raca: true } } } };
+        services: { include: { service: { select: GetAllServicesSelect } } };
+    }
+}>;
 type AppointmentWithDogsAndServices = Prisma.AppointmentGetPayload<{
     include: {
         user: { select: { id: true, nome: true, email: true } };
@@ -16,101 +22,99 @@ type AppointmentWithDogsAndServices = Prisma.AppointmentGetPayload<{
     }
 }>;
 
-// 2. Tipo auxiliar para o resultado de getAllAppointments (selects customizados)
-type GetAllServicesSelect = { name: true, pricePequeno: true, priceMedio: true, priceGrande: true };
-
-type GetAllAppointmentsResult = Prisma.AppointmentGetPayload<{
-    include: {
-        dogs: { include: { dog: { select: { nome: true, raca: true } } } };
-        services: { include: { service: { select: GetAllServicesSelect } } };
-    }
-}>;
-
-
 /**
- * [POST] /appointments - Cria um novo agendamento, gerencia many-to-many e valida contra bloqueios de agenda.
+ * [POST] /appointments - Cria um agendamento com validação completa de conflitos.
  */
 export const createAppointment = async (req: Request<{}, {}, CreateAppointmentInput>, res: Response) => {
   const { date, dogIds, serviceIds } = req.body;
   const userId = req.user.id;
 
-  try {
-    // 0. VALIDAÇÃO DE CONFLITO COM BLOQUEIOS DE AGENDA
-    const appointmentEnd = new Date(date.getTime() + APPOINTMENT_DURATION_MS);
+  // Converte a data recebida (string ou Date) para objeto Date
+  const appointmentStart = new Date(date);
+  const appointmentEnd = new Date(appointmentStart.getTime() + APPOINTMENT_DURATION_MS);
 
-    const conflictingSlot = await prisma.blockedTimeSlot.findFirst({
+  try {
+    // 1. VALIDAÇÃO DE CONFLITO (ADMIN + OUTROS AGENDAMENTOS)
+    
+    // A. Checar Bloqueios do Admin
+    const conflictingBlock = await prisma.blockedTimeSlot.findFirst({
         where: {
             dateStart: { lt: appointmentEnd },
-            dateEnd: { gt: date },
+            dateEnd: { gt: appointmentStart },
         },
     });
 
-    if (conflictingSlot) {
-        const start = conflictingSlot.dateStart.toISOString().slice(0, 16).replace('T', ' ');
-        const end = conflictingSlot.dateEnd.toISOString().slice(0, 16).replace('T', ' ');
+    if (conflictingBlock) {
         return res.status(409).json({ 
-            message: `Conflito de agendamento. O horário de ${start} a ${end} está bloqueado. Motivo: ${conflictingSlot.reason}`,
+            message: `Horário indisponível (Bloqueio Administrativo). Motivo: ${conflictingBlock.reason}`,
         });
     }
 
-    // 1. Validar se todos os Dogs pertencem ao usuário
+    // B. Checar Outros Agendamentos (CORREÇÃO APLICADA AQUI)
+    const conflictingAppointment = await prisma.appointment.findFirst({
+        where: {
+            status: { not: 'CANCELADO' }, // Ignora cancelados
+            date: {
+                equals: appointmentStart, // Verifica colisão exata de horário
+            }
+        }
+    });
+
+    if (conflictingAppointment) {
+        return res.status(409).json({ 
+            message: `Este horário já foi reservado por outro cliente. Por favor, escolha outro.`,
+        });
+    }
+
+    // 2. Validar Cães (Devem pertencer ao usuário)
     const dogs = await prisma.dog.findMany({
       where: {
         id: { in: dogIds },
         ownerId: userId,
       },
     });
-
     if (dogs.length !== dogIds.length) {
-      return res.status(400).json({ message: 'Um ou mais IDs de cachorro são inválidos ou não pertencem a você.' });
+      return res.status(400).json({ message: 'Um ou mais cães são inválidos ou não pertencem a você.' });
     }
 
-    // 2. Validar se todos os Services existem
+    // 3. Validar Serviços
     const services = await prisma.service.findMany({
       where: { id: { in: serviceIds } },
     });
-
     if (services.length !== serviceIds.length) {
-      return res.status(400).json({ message: 'Um ou mais IDs de serviço são inválidos.' });
+      return res.status(400).json({ message: 'Um ou mais serviços são inválidos.' });
     }
 
-    // 3. Cria o agendamento e as tabelas de junção em uma transação implícita
+    // 4. Criar Agendamento
     const newAppointment = await prisma.appointment.create({
       data: {
-        date,
+        date: appointmentStart,
         userId,
         dogs: {
-          // Tipagem explícita para dogId (string)
           create: dogIds.map((dogId: string) => ({
             dog: { connect: { id: dogId } }
           })),
         },
         services: {
-          // Tipagem explícita para serviceId (string)
           create: serviceIds.map((serviceId: string) => ({
             service: { connect: { id: serviceId } }
           })),
         }
       },
-      // Inclui os dados relacionados para o retorno
       include: { 
         user: { select: { id: true, nome: true, email: true } },
         dogs: { include: { dog: true } },
         services: { include: { service: true } },
       }
-    }) as AppointmentWithDogsAndServices; // Força a tipagem de retorno
-    
-    // Simplifica a resposta, removendo a estrutura da tabela de junção
+    }) as AppointmentWithDogsAndServices;
+
+    // Simplifica retorno
     const dogsDetails = newAppointment.dogs.map(ad => ad.dog);
     const servicesDetails = newAppointment.services.map(as => as.service);
 
     return res.status(201).json({ 
       message: 'Agendamento criado com sucesso!', 
-      appointment: {
-        ...newAppointment,
-        dogs: dogsDetails,
-        services: servicesDetails,
-      }
+      appointment: { ...newAppointment, dogs: dogsDetails, services: servicesDetails }
     });
 
   } catch (error) {
@@ -120,11 +124,52 @@ export const createAppointment = async (req: Request<{}, {}, CreateAppointmentIn
 };
 
 /**
+ * [DELETE] /appointments/:id - Cancela (deleta) um agendamento e seus vínculos.
+ */
+export const deleteAppointment = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const existingAppointment = await prisma.appointment.findUnique({ where: { id } });
+
+    if (!existingAppointment || existingAppointment.userId !== userId) {
+      return res.status(404).json({ message: 'Agendamento não encontrado ou não pertence a você.' });
+    }
+
+    // CORREÇÃO: Usar transação para deletar dependências antes do agendamento
+    await prisma.$transaction([
+        // 1. Remove vínculos com Cães
+        prisma.appointmentDog.deleteMany({
+            where: { appointmentId: id }
+        }),
+        // 2. Remove vínculos com Serviços
+        prisma.appointmentService.deleteMany({
+            where: { appointmentId: id }
+        }),
+        // 3. Remove o Agendamento em si
+        prisma.appointment.delete({
+            where: { id }
+        })
+    ]);
+
+    return res.status(204).send();
+  } catch (error: any) {
+    console.error('Erro ao deletar agendamento:', error);
+    if (error.code === 'P2025') {
+        return res.status(404).json({ message: 'Agendamento já foi removido.' });
+    }
+    return res.status(500).json({ message: 'Erro interno ao cancelar agendamento.' });
+  }
+};
+
+// ... (Mantenha getAppointmentById, getAllAppointments, updateAppointment, getBusySlotsForDate iguais)
+/**
  * [GET] /appointments/:id - Busca um agendamento por ID com includes.
  */
 export const getAppointmentById = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = req.user.id; // Garante que apenas o dono possa ver
+  const userId = req.user.id; 
 
   try {
     const appointment = await prisma.appointment.findUnique({
@@ -134,13 +179,12 @@ export const getAppointmentById = async (req: Request, res: Response) => {
         dogs: { include: { dog: true } },
         services: { include: { service: true } },
       },
-    }) as AppointmentWithDogsAndServices | null; // Força a tipagem de retorno
+    }) as AppointmentWithDogsAndServices | null; 
 
     if (!appointment) {
       return res.status(404).json({ message: 'Agendamento não encontrado ou não pertence a você.' });
     }
 
-    // Limpeza e simplificação do retorno
     const dogsDetails = appointment.dogs.map(ad => ad.dog);
     const servicesDetails = appointment.services.map(as => as.service);
 
@@ -172,21 +216,20 @@ export const getAllAppointments = async (req: Request, res: Response) => {
                 service: { 
                     select: { 
                         name: true, 
-                        pricePequeno: true, // CORRIGIDO: Substituindo 'price' pelo novo campo
-                        priceMedio: true,   // CORRIGIDO
-                        priceGrande: true   // CORRIGIDO
+                        pricePequeno: true, 
+                        priceMedio: true,   
+                        priceGrande: true   
                     } 
                 } 
             } 
         },
       }
-    }) as GetAllAppointmentsResult[]; // Força a tipagem de retorno
+    }) as GetAllAppointmentsResult[]; 
 
-    // Mapeamento para simplificar a resposta
     const simplifiedAppointments = appointments.map(app => ({
       ...app,
-      dogs: app.dogs.map(ad => ad.dog), 
-      services: app.services.map(as => as.service),
+      dogs: app.dogs.map((ad: { dog: any }) => ad.dog), 
+      services: app.services.map((as: { service: any }) => as.service),
     }));
 
     return res.status(200).json(simplifiedAppointments);
@@ -200,13 +243,11 @@ export const getAllAppointments = async (req: Request, res: Response) => {
  * [PUT] /appointments/:id - Atualiza um agendamento.
  */
 export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateAppointmentInput>, res: Response) => {
-  // CORREÇÃO: Usar dogIds e serviceIds
   const { id } = req.params;
   const { date, status, dogIds, serviceIds } = req.body;
   const userId = req.user.id;
 
   try {
-    // 1. Verifica se o agendamento pertence ao usuário
     const existingAppointment = await prisma.appointment.findUnique({ where: { id } });
 
     if (!existingAppointment || existingAppointment.userId !== userId) {
@@ -214,10 +255,8 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
     }
 
     const updateData: any = { date, status };
-
     const transactionOperations = [];
 
-    // Lógica para atualizar Dogs (deleta os antigos e cria os novos)
     if (dogIds) {
         const dogs = await prisma.dog.findMany({ where: { id: { in: dogIds }, ownerId: userId } });
         if (dogs.length !== dogIds.length) {
@@ -225,12 +264,10 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
         }
         transactionOperations.push(
             prisma.appointmentDog.deleteMany({ where: { appointmentId: id } }) as Prisma.PrismaPromise<any>,
-            // Tipagem explícita
             prisma.appointmentDog.createMany({ data: dogIds.map((dogId: string) => ({ dogId, appointmentId: id })) }) as Prisma.PrismaPromise<any>
         );
     }
 
-    // Lógica para atualizar Services
     if (serviceIds) {
         const services = await prisma.service.findMany({ where: { id: { in: serviceIds } } });
         if (services.length !== serviceIds.length) {
@@ -238,12 +275,10 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
         }
         transactionOperations.push(
             prisma.appointmentService.deleteMany({ where: { appointmentId: id } }) as Prisma.PrismaPromise<any>,
-            // Tipagem explícita
             prisma.appointmentService.createMany({ data: serviceIds.map((serviceId: string) => ({ serviceId, appointmentId: id })) }) as Prisma.PrismaPromise<any>
         );
     }
 
-    // 2. Executa a atualização principal junto com a manipulação das junções em uma transação
     await prisma.$transaction([
         prisma.appointment.update({
             where: { id },
@@ -252,7 +287,6 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
         ...transactionOperations
     ]);
 
-    // 3. Busca o agendamento completo para o retorno
     const fullAppointment = await prisma.appointment.findUnique({
         where: { id },
         include: { user: { select: { id: true, nome: true, email: true } }, dogs: { include: { dog: true } }, services: { include: { service: true } } }
@@ -282,29 +316,53 @@ export const updateAppointment = async (req: Request<{ id: string }, {}, UpdateA
 };
 
 /**
- * [DELETE] /appointments/:id - Deleta um agendamento.
+ * [GET] /appointments/busy?date=YYYY-MM-DD - Busca todos os horários ocupados (agendamentos e bloqueios) para uma dada data.
  */
-export const deleteAppointment = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-
-  try {
-    const existingAppointment = await prisma.appointment.findUnique({ where: { id } });
-
-    if (!existingAppointment || existingAppointment.userId !== userId) {
-      return res.status(404).json({ message: 'Agendamento não encontrado ou não pertence a você.' });
+export const getBusySlotsForDate = async (req: Request, res: Response) => {
+    const dateString = req.query.date; // Espera YYYY-MM-DD
+    
+    if (!dateString || typeof dateString !== 'string') {
+        return res.status(400).json({ message: 'A data (date=YYYY-MM-DD) é obrigatória.' });
     }
 
-    await prisma.appointment.delete({
-      where: { id },
-    });
+    const startOfDay = new Date(`${dateString}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dateString}T23:59:59.999Z`);
+    
+    try {
+        const appointments = await prisma.appointment.findMany({
+            where: {
+                date: {
+                    gte: startOfDay, 
+                    lte: endOfDay,   
+                },
+                status: { not: 'CANCELADO' }
+            },
+            select: { date: true },
+        });
 
-    return res.status(204).send();
-  } catch (error: any) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ message: 'Agendamento não encontrado.' });
+        const blockedSlots = await prisma.blockedTimeSlot.findMany({
+            where: {
+                dateStart: {
+                    lte: endOfDay, 
+                },
+                dateEnd: {
+                    gte: startOfDay, 
+                }
+            },
+            select: { dateStart: true, dateEnd: true },
+        });
+
+        const busySlots = {
+            appointments: appointments.map(app => app.date.toISOString()),
+            blockedSlots: blockedSlots.map(slot => ({ 
+                start: slot.dateStart.toISOString(), 
+                end: slot.dateEnd.toISOString() 
+            })),
+        };
+
+        return res.status(200).json(busySlots);
+    } catch (error) {
+        console.error('Erro ao buscar horários ocupados:', error);
+        return res.status(500).json({ message: 'Erro interno do servidor.' });
     }
-    console.error('Erro ao deletar agendamento:', error);
-    return res.status(500).json({ message: 'Erro interno do servidor.' });
-  }
 };

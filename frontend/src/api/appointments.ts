@@ -1,20 +1,30 @@
 import api from './client';
 import type { Service, Appointment, CreateAppointmentPayload } from '../types';
 
+// --- NOVOS TIPOS E FUNÇÕES ---
+
+export interface BusySlotsResponse {
+    appointments: string[]; // Lista de datas ISO
+    blockedSlots: Array<{ start: string, end: string }>; // Lista de intervalos bloqueados
+}
+
 /**
- * [GET] /services - Busca todos os serviços disponíveis (Público).
+ * [GET] /appointments/busy?date=YYYY-MM-DD - Busca horários ocupados.
  */
+export const fetchBusySlots = async (date: string): Promise<BusySlotsResponse> => {
+    const response = await api.get<BusySlotsResponse>(`/appointments/busy?date=${date}`);
+    return response.data;
+};
+
+// --- FUNÇÕES EXISTENTES ---
+
 export const fetchAvailableServices = async (): Promise<Service[]> => {
-    // Note que usamos a rota de serviços, mas via nosso cliente autenticado
     const response = await api.get<Service[]>('/services');
     return response.data;
 };
 
-/**
- * [POST] /appointments - Cria um novo agendamento. (Requer JWT)
- */
 export const createAppointment = async (payload: CreateAppointmentPayload): Promise<Appointment> => {
-    // Formata a data como string ISO 8601, que é o que o backend espera no Zod
+    // Garante formato ISO
     const payloadWithFormattedDate = {
         ...payload,
         date: new Date(payload.date).toISOString(),
@@ -24,11 +34,11 @@ export const createAppointment = async (payload: CreateAppointmentPayload): Prom
     return response.data.appointment;
 };
 
-/**
- * [GET] /appointments - Busca todos os agendamentos do usuário logado.
- */
 export const fetchMyAppointments = async (): Promise<Appointment[]> => {
-    // O backend retorna uma lista de objetos Appointment
     const response = await api.get<Appointment[]>('/appointments');
     return response.data;
+};
+
+export const cancelAppointment = async (id: string): Promise<void> => {
+    await api.delete(`/appointments/${id}`);
 };

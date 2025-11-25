@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchMyAppointments } from '../api/appointments';
+import { fetchMyAppointments, cancelAppointment } from '../api/appointments';
 import type { Appointment, AppointmentStatus } from '../types';
 
-// Type Guard para tratar erros de Axios (reutilizado de outros componentes)
+// Type Guard para tratar erros de Axios
 interface AxiosErrorData { response?: { data?: { message?: string } } }
 const isAxiosErrorResponse = (error: unknown): error is AxiosErrorData => (error as AxiosErrorData)?.response !== undefined;
 
@@ -15,13 +15,16 @@ export const AppointmentHistory: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            // Chama a nova função de serviço
             const data = await fetchMyAppointments();
-            setAppointments(data);
+            // Ordenar do mais recente para o mais antigo
+            setAppointments(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         } catch (err: unknown) {
+            // CORREÇÃO 1: Usando 'err' para extrair a mensagem real
             let errorMessage = 'Erro ao carregar o histórico de agendamentos.';
             if (isAxiosErrorResponse(err)) {
                 errorMessage = err.response?.data?.message || errorMessage;
+            } else if (err instanceof Error) {
+                errorMessage = err.message;
             }
             setError(errorMessage);
         } finally {
@@ -32,6 +35,34 @@ export const AppointmentHistory: React.FC = () => {
     useEffect(() => {
         loadAppointments();
     }, [loadAppointments]);
+
+    // Lógica de Cancelamento (Regra de 24h)
+    const handleCancel = async (id: string, dateString: string | Date) => {
+        const appointmentDate = new Date(dateString);
+        const now = new Date();
+        
+        // Diferença em milissegundos
+        const diffMs = appointmentDate.getTime() - now.getTime();
+        // Converter para horas
+        const diffHours = diffMs / (1000 * 60 * 60);
+
+        if (diffHours < 24) {
+            alert("Cancelamento não permitido. É necessário no mínimo 24h de antecedência.");
+            return;
+        }
+
+        if (!window.confirm("Tem certeza que deseja cancelar este agendamento?")) return;
+
+        try {
+            await cancelAppointment(id);
+            setAppointments(prev => prev.filter(app => app.id !== id));
+            alert("Agendamento cancelado com sucesso.");
+        } catch (error) {
+            // CORREÇÃO 2: Usando 'error' no console para debug (satisfaz o linter)
+            console.error("Falha ao cancelar:", error);
+            alert("Erro ao cancelar agendamento. Tente novamente.");
+        }
+    };
 
     const getStatusStyle = (status: AppointmentStatus): React.CSSProperties => {
         switch (status) {
@@ -64,17 +95,14 @@ export const AppointmentHistory: React.FC = () => {
             ) : (
                 <div style={listContainerStyle}>
                     {appointments.map(app => (
-                        <div key={app.id} style={cardStyle}>
-                            <p style={{ fontSize: '1.1em', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                                Data: **{formatDate(app.date)}**
-                            </p>
-                            <p>
-                                Status: <span style={getStatusStyle(app.status)}>{app.status}</span>
-                            </p>
+                        <div key={app.id} style={{...cardStyle, opacity: app.status === 'CANCELADO' ? 0.6 : 1}}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '1.1em' }}>Data: <strong>{formatDate(app.date)}</strong></span>
+                                <span style={getStatusStyle(app.status)}>{app.status}</span>
+                            </div>
 
                             <h3 style={sectionHeaderStyle}>Cães ({app.dogs.length})</h3>
                             <ul style={listStyle}>
-                                {/* O backend retorna um array de objetos Dog aninhados na junção */}
                                 {app.dogs.map(dog => (
                                     <li key={dog.id}>{dog.nome} ({dog.raca})</li>
                                 ))}
@@ -82,13 +110,20 @@ export const AppointmentHistory: React.FC = () => {
 
                             <h3 style={sectionHeaderStyle}>Serviços ({app.services.length})</h3>
                             <ul style={listStyle}>
-                                {/* O backend retorna um array de objetos Service aninhados na junção */}
                                 {app.services.map(service => (
                                     <li key={service.id}>{service.name}</li>
                                 ))}
                             </ul>
                             
-                            <button style={detailButtonStyle}>Ver Detalhes</button>
+                            {/* Botão de Cancelamento (Apenas se AGENDADO) */}
+                            {app.status === 'AGENDADO' && (
+                                <button 
+                                    onClick={() => handleCancel(app.id, app.date)}
+                                    style={cancelButtonStyle}
+                                >
+                                    Cancelar Agendamento
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -104,4 +139,14 @@ const cardStyle: React.CSSProperties = { border: '1px solid #ddd', padding: '20p
 const sectionHeaderStyle: React.CSSProperties = { fontSize: '1em', marginTop: '15px', marginBottom: '5px', color: '#007bff' };
 const listStyle: React.CSSProperties = { listStyleType: 'disc', paddingLeft: '20px', margin: '0 0 10px 0' };
 const errorStyle: React.CSSProperties = { padding: '10px', color: 'white', backgroundColor: '#dc3545', borderRadius: '5px', textAlign: 'center' };
-const detailButtonStyle: React.CSSProperties = { padding: '8px 15px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' };
+const cancelButtonStyle: React.CSSProperties = { 
+    marginTop: '15px', 
+    width: '100%', 
+    padding: '10px', 
+    backgroundColor: '#dc3545', 
+    color: 'white', 
+    border: 'none', 
+    borderRadius: '4px', 
+    cursor: 'pointer',
+    fontWeight: 'bold'
+};
