@@ -88,6 +88,7 @@ export interface CreateDogPayload {
     raca: string;
     porte: Porte;
 }
+export type UpdateDogPayload = Partial<CreateDogPayload>;;
 
 export interface CreateAppointmentPayload {
     date: string; // Deve ser uma string ISO 8601 (ex: "2025-12-31T10:00:00.000Z")
