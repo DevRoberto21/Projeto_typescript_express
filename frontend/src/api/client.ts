@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// A URL base aponta para o seu backend Express (padrão 3000)
-const API_BASE_URL = 'http://localhost:3000'; 
+//Usa a variável de ambiente do Vite (VITE_API_URL) para o deploy.
+// O Render injetará o valor em produção; usamos localhost como fallback.
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'; 
 
 const api = axios.create({
     baseURL: API_BASE_URL,
