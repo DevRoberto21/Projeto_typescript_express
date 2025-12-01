@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMyAppointments, cancelAppointment } from '../api/appointments';
-import type { Appointment, AppointmentStatus } from '../types';
+// COMENTÁRIO: Importa apenas o tipo 'Appointment', resolvendo o erro 'AppointmentStatus' unused.
+import type { Appointment } from '../types'; 
+
+// COMENTÁRIO: Importa estilos e a função getStatusStyle do arquivo dedicado.
+import {
+    containerStyle, listContainerStyle, cardStyle, sectionHeaderStyle, 
+    listStyle, errorStyle, cancelButtonStyle, getStatusStyle
+} from './AppointmentHistoryStyles'; // Assumindo este arquivo foi criado
+
 
 // Type Guard para tratar erros de Axios
 interface AxiosErrorData { response?: { data?: { message?: string } } }
@@ -19,7 +27,7 @@ export const AppointmentHistory: React.FC = () => {
             // Ordenar do mais recente para o mais antigo
             setAppointments(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         } catch (err: unknown) {
-            // CORREÇÃO 1: Usando 'err' para extrair a mensagem real
+            // COMENTÁRIO: Trata o erro e extrai a mensagem.
             let errorMessage = 'Erro ao carregar o histórico de agendamentos.';
             if (isAxiosErrorResponse(err)) {
                 errorMessage = err.response?.data?.message || errorMessage;
@@ -41,11 +49,10 @@ export const AppointmentHistory: React.FC = () => {
         const appointmentDate = new Date(dateString);
         const now = new Date();
         
-        // Diferença em milissegundos
-        const diffMs = appointmentDate.getTime() - now.getTime();
-        // Converter para horas
-        const diffHours = diffMs / (1000 * 60 * 60);
+        // Diferença em horas
+        const diffHours = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
+        // COMENTÁRIO: Regra de negócio: Requer no mínimo 24h para cancelar.
         if (diffHours < 24) {
             alert("Cancelamento não permitido. É necessário no mínimo 24h de antecedência.");
             return;
@@ -58,25 +65,11 @@ export const AppointmentHistory: React.FC = () => {
             setAppointments(prev => prev.filter(app => app.id !== id));
             alert("Agendamento cancelado com sucesso.");
         } catch (error) {
-            // CORREÇÃO 2: Usando 'error' no console para debug (satisfaz o linter)
             console.error("Falha ao cancelar:", error);
             alert("Erro ao cancelar agendamento. Tente novamente.");
         }
     };
-
-    const getStatusStyle = (status: AppointmentStatus): React.CSSProperties => {
-        switch (status) {
-            case 'AGENDADO':
-                return { color: '#007bff', fontWeight: 'bold' };
-            case 'CONCLUIDO':
-                return { color: '#28a745', fontWeight: 'bold' };
-            case 'CANCELADO':
-                return { color: '#dc3545', fontWeight: 'bold' };
-            default:
-                return {};
-        }
-    };
-
+    
     const formatDate = (dateString: string | Date) => {
         if (!dateString) return 'N/A';
         const date = new Date(dateString);
@@ -84,7 +77,7 @@ export const AppointmentHistory: React.FC = () => {
     };
 
     if (loading) return <div style={containerStyle}>Carregando histórico de agendamentos...</div>;
-    if (error) return <div style={{ ...containerStyle, ...errorStyle }}>Erro: {error}</div>;
+    if (error) return <div style={{ ...containerStyle, ...errorStyle }}>Erro: {error}</div>; 
 
     return (
         <div style={containerStyle}>
@@ -98,7 +91,7 @@ export const AppointmentHistory: React.FC = () => {
                         <div key={app.id} style={{...cardStyle, opacity: app.status === 'CANCELADO' ? 0.6 : 1}}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
                                 <span style={{ fontSize: '1.1em' }}>Data: <strong>{formatDate(app.date)}</strong></span>
-                                <span style={getStatusStyle(app.status)}>{app.status}</span>
+                                <span style={getStatusStyle(app.status)}>{app.status}</span> 
                             </div>
 
                             <h3 style={sectionHeaderStyle}>Cães ({app.dogs.length})</h3>
@@ -130,23 +123,4 @@ export const AppointmentHistory: React.FC = () => {
             )}
         </div>
     );
-};
-
-// Estilos
-const containerStyle: React.CSSProperties = { padding: '30px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Arial, sans-serif' };
-const listContainerStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' };
-const cardStyle: React.CSSProperties = { border: '1px solid #ddd', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.05)', backgroundColor: 'white', color: '#333' };
-const sectionHeaderStyle: React.CSSProperties = { fontSize: '1em', marginTop: '15px', marginBottom: '5px', color: '#007bff' };
-const listStyle: React.CSSProperties = { listStyleType: 'disc', paddingLeft: '20px', margin: '0 0 10px 0' };
-const errorStyle: React.CSSProperties = { padding: '10px', color: 'white', backgroundColor: '#dc3545', borderRadius: '5px', textAlign: 'center' };
-const cancelButtonStyle: React.CSSProperties = { 
-    marginTop: '15px', 
-    width: '100%', 
-    padding: '10px', 
-    backgroundColor: '#dc3545', 
-    color: 'white', 
-    border: 'none', 
-    borderRadius: '4px', 
-    cursor: 'pointer',
-    fontWeight: 'bold'
 };
