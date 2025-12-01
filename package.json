@@ -5,8 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --project backend/tsconfig.json backend/src/index.ts",
-    "build": "tsc --rootDir backend/src --outDir dist",
-    "start": "node dist/index.js",
+    
+    "build:backend": "tsc --rootDir backend/src --outDir dist",
+    "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
+    "build:prod": "npm run prisma:generate && npm run build:backend && npm run build:frontend",
+    "start:backend": "node dist/index.js",
+    "start:prod": "npm run prisma:migrate:prod && npm run seed && npm run start:backend",
+    
     "prisma:init": "npx prisma init --schema backend/prisma/schema.prisma",
     "prisma:migrate": "npx prisma migrate dev --name init --schema backend/prisma/schema.prisma",
     "prisma:migrate:prod": "npx prisma migrate deploy --schema backend/prisma/schema.prisma",
@@ -47,6 +52,5 @@
   },
   "prisma":{
     "seed":"ts-node ./backend/prisma/seed.ts"
-
   }
 }
