@@ -10,17 +10,22 @@ import userRoutes from './routes/userRoutes';
 import dogRoutes from './routes/dogRoutes';
 import serviceRoutes from './routes/serviceRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
-import blockedTimeSlotRoutes from './routes/blockedTimeSlotRoutes'; // NOVO IMPORT
-import statsRoutes from './routes/statsRoutes'; // <== ADICIONADO
+import blockedTimeSlotRoutes from './routes/blockedTimeSlotRoutes';
+import statsRoutes from './routes/statsRoutes';
 import prisma from './prisma/client';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+//Define a origem CORS baseada na variável de ambiente (necessário para o Render).
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'; 
 
 // --- Middlewares ---
-app.use(cors());
+app.use(cors({
+  origin: CORS_ORIGIN,
+  credentials: true,
+})); //Configurado para permitir o acesso do Frontend em produção.
 app.use(express.json()); // Permite que a API receba JSON no body da requisição
 
 // --- Rotas da API ---
@@ -29,8 +34,8 @@ app.use('/users', userRoutes);
 app.use('/dogs', dogRoutes);
 app.use('/services', serviceRoutes);
 app.use('/appointments', appointmentRoutes);
-app.use('/admin/blocked-slots', blockedTimeSlotRoutes); // NOVA ROTA DE ADMIN
-app.use('/admin/stats', statsRoutes); // <== Rota para Estatísticas de Admin ADICIONADA AQUI
+app.use('/admin/blocked-slots', blockedTimeSlotRoutes);
+app.use('/admin/stats', statsRoutes);
 
 // --- Rota do Swagger ---
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -66,6 +71,7 @@ async function main() {
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
       console.log(`📖 Documentação Swagger em http://localhost:${PORT}/docs`);
+      console.log(`📡 CORS enabled for: ${CORS_ORIGIN}`); //Loga a origem CORS configurada.
     });
   } catch (e) {
     console.error('❌ Falha ao iniciar o servidor ou conectar ao banco de dados:', e);
