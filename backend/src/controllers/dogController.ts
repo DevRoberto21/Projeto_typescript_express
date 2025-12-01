@@ -1,26 +1,27 @@
 import { Request, Response } from 'express';
-import prisma from '../prisma/client';
 import { CreateDogInput, UpdateDogInput } from '../schemas/zod/dogSchema';
-import { Prisma } from '@prisma/client'; // Importar Prisma para a transação
+import { Prisma } from '@prisma/client';
+
+// IMPORTAÇÃO DOS SERVIÇOS
+import { 
+    createDogService, 
+    getAllDogsService, 
+    getDogByIdService, 
+    updateDogService, 
+    deleteDogService 
+} from '../services/dogService'; 
+
 
 /**
  * [POST] /dogs - Cadastra um novo cão para o usuário logado.
  */
 export const createDog = async (req: Request<{}, {}, CreateDogInput>, res: Response) => {
-  // A validação de raça (dog.ceo) acontece no middleware Zod antes de chegar aqui.
-  const { nome, idade, raca, porte } = req.body;
-  const ownerId = req.user.id; // Pega o ID do usuário do token JWT
+  const data = req.body;
+  const ownerId = req.user.id; 
 
   try {
-    const dog = await prisma.dog.create({
-      data: {
-        nome,
-        idade,
-        raca,
-        porte,
-        ownerId,
-      },
-    });
+    // COMENTÁRIO: Delega a criação ao Service.
+    const dog = await createDogService(data, ownerId);
 
     return res.status(201).json({ message: 'Cachorro cadastrado com sucesso!', dog });
   } catch (error) {
@@ -30,34 +31,26 @@ export const createDog = async (req: Request<{}, {}, CreateDogInput>, res: Respo
 };
 
 /**
- * [GET] /dogs/:id - Busca um cão por ID. Inclui o dono se `?includeOwner=true`.
+ * [GET] /dogs/:id - Busca um cão por ID.
  */
 export const getDogById = async (req: Request, res: Response) => {
   const { id } = req.params;
-  // Query param para inclusão opcional
   const includeOwner = req.query.includeOwner === 'true'; 
 
   try {
-    const dog = await prisma.dog.findUnique({
-      where: { id },
-      include: {
-        // Inclusão condicional (só se o parâmetro for true)
-        owner: includeOwner ? {
-          select: { id: true, nome: true, email: true, telefone: true }
-        } : false, 
-      },
-    });
+    // COMENTÁRIO: Delega a busca ao Service.
+    const dog = await getDogByIdService(id, includeOwner);
 
     if (!dog) {
       return res.status(404).json({ message: 'Cachorro não encontrado.' });
     }
 
-    // Se a requisição pediu para incluir o dono OU o usuário logado é o dono: retorna tudo.
+    // COMENTÁRIO: Lógica de filtragem de dados sensíveis mantida na camada Controller/HTTP.
     if (!includeOwner || dog.ownerId === req.user.id) {
         return res.status(200).json(dog);
     }
     
-    // Caso contrário, retorna o Dog, mas remove o Owner (se foi incluído) para não expor dados de outros usuários
+    // Retorna o Dog, mas remove o Owner (se foi incluído)
     const { owner, ...dogWithoutOwner } = dog;
     return res.status(200).json(dogWithoutOwner);
 
@@ -72,13 +65,11 @@ export const getDogById = async (req: Request, res: Response) => {
  * [GET] /dogs - Busca todos os cães do usuário logado.
  */
 export const getAllDogs = async (req: Request, res: Response) => {
-  const ownerId = req.user.id; // Filtra por usuário logado
+  const ownerId = req.user.id; 
 
   try {
-    const dogs = await prisma.dog.findMany({
-      where: { ownerId },
-      orderBy: { nome: 'asc' },
-    });
+    // COMENTÁRIO: Delega a busca filtrada ao Service.
+    const dogs = await getAllDogsService(ownerId);
 
     return res.status(200).json(dogs);
   } catch (error) {
@@ -88,7 +79,7 @@ export const getAllDogs = async (req: Request, res: Response) => {
 };
 
 /**
- * [PUT] /dogs/:id - Atualiza um cão por ID (Apenas o dono).
+ * [PUT] /dogs/:id - Atualiza um cão por ID.
  */
 export const updateDog = async (req: Request<{ id: string }, {}, UpdateDogInput>, res: Response) => {
   const { id } = req.params;
@@ -96,27 +87,18 @@ export const updateDog = async (req: Request<{ id: string }, {}, UpdateDogInput>
   const ownerId = req.user.id;
 
   try {
-    // 1. Verifica se o cão pertence ao usuário logado
-    const dog = await prisma.dog.findUnique({ where: { id } });
-
-    if (!dog) {
-      return res.status(404).json({ message: 'Cachorro não encontrado.' });
-    }
-
-    if (dog.ownerId !== ownerId) {
-      return res.status(403).json({ message: 'Você não tem permissão para editar este cachorro.' });
-    }
-
-    // 2. Atualiza
-    const updatedDog = await prisma.dog.update({
-      where: { id },
-      data: updatedData,
-    });
+    // COMENTÁRIO: Delega a atualização e checagem de propriedade ao Service.
+    const updatedDog = await updateDogService(id, updatedData, ownerId);
 
     return res.status(200).json({ message: 'Cachorro atualizado com sucesso.', dog: updatedDog });
   } catch (error: any) {
-    if (error.code === 'P2025') {
+    // COMENTÁRIO: Trata o erro de "Cachorro não encontrado" (P2025)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return res.status(404).json({ message: 'Cachorro não encontrado.' });
+    }
+    // COMENTÁRIO: Trata o erro de "Permissão negada" (Regra de Negócio)
+    if (error.message && error.message.includes('permissão')) {
+        return res.status(403).json({ message: error.message });
     }
     console.error('Erro ao atualizar cachorro:', error);
     return res.status(500).json({ message: 'Erro interno do servidor.' });
@@ -124,41 +106,25 @@ export const updateDog = async (req: Request<{ id: string }, {}, UpdateDogInput>
 };
 
 /**
- * [DELETE] /dogs/:id - Deleta um cão por ID (Apenas o dono).
+ * [DELETE] /dogs/:id - Deleta um cão por ID.
  */
 export const deleteDog = async (req: Request, res: Response) => {
   const { id } = req.params;
   const ownerId = req.user.id;
 
   try {
-    // 1. Verifica se o cão pertence ao usuário logado
-    const dog = await prisma.dog.findUnique({ where: { id } });
-
-    if (!dog) {
-      return res.status(404).json({ message: 'Cachorro não encontrado.' });
-    }
-
-    if (dog.ownerId !== ownerId) {
-      return res.status(403).json({ message: 'Você não tem permissão para deletar este cachorro.' });
-    }
-
-    // 2. CORREÇÃO: Deleta em transação para remover referências (Foreign Keys) primeiro
-    await prisma.$transaction([
-        // Remove todos os vínculos com agendamentos (tabela de junção)
-        prisma.appointmentDog.deleteMany({
-            where: { dogId: id }
-        }) as Prisma.PrismaPromise<any>,
-        // Remove o Cão
-        prisma.dog.delete({
-            where: { id },
-        }) as Prisma.PrismaPromise<any>
-    ]);
+    // COMENTÁRIO: Delega a transação de exclusão e checagem de propriedade ao Service.
+    await deleteDogService(id, ownerId);
 
     return res.status(204).send();
   } catch (error: any) {
-    // O erro P2003 (Foreign Key) será resolvido pela transação.
-    if (error.code === 'P2025') {
+    // COMENTÁRIO: Trata o erro de "Cachorro não encontrado" (P2025)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return res.status(404).json({ message: 'Cachorro não encontrado.' });
+    }
+    // COMENTÁRIO: Trata o erro de "Permissão negada" (Regra de Negócio)
+    if (error.message && error.message.includes('permissão')) {
+        return res.status(403).json({ message: error.message });
     }
     console.error('Erro ao deletar cachorro:', error);
     return res.status(500).json({ message: 'Erro interno do servidor.' });
