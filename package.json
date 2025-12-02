@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --project backend/tsconfig.json backend/src/index.ts",
     
-    "build:backend": "tsc --rootDir backend/src --outDir dist",
+    "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
     "build:prod": "npm run prisma:generate && npm run build:backend && npm run build:frontend",
     "start:backend": "node dist/index.js",
