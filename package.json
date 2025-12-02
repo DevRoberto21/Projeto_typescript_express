@@ -5,21 +5,21 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --project backend/tsconfig.json backend/src/index.ts",
-   
+    
     "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "npm install --prefix frontend && npm run build --prefix frontend",
     "build:prod": "npm run prisma:generate && npm run build:backend && npm run build:frontend",
     
-    "start:backend": "node dist/index.js",
+    "start:backend": "node backend/dist/index.js", 
     "start:prod": "npm run prisma:migrate:prod && npm run seed && npm run start:backend",
-  
-    "seed": "ts-node ./backend/prisma/seed.ts",
     
+   
+    "seed": "ts-node ./backend/prisma/seed.ts",
     "prisma:init": "npx prisma init --schema backend/prisma/schema.prisma",
     "prisma:migrate": "npx prisma migrate dev --name init --schema backend/prisma/schema.prisma",
     "prisma:migrate:prod": "npx prisma migrate deploy --schema backend/prisma/schema.prisma",
     "prisma:generate": "npx prisma generate --schema backend/prisma/schema.prisma",
-    "prisma:studio": "npx prisma studio --schema backend/prisma/schema.prisma"
+    "prisma:studio": "npx prisma studio --schema backend/prisma/schema.prisma``"
   },
   "keywords": [
     "express",
