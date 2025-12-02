@@ -13,19 +13,20 @@ import appointmentRoutes from './routes/appointmentRoutes';
 import blockedTimeSlotRoutes from './routes/blockedTimeSlotRoutes';
 import statsRoutes from './routes/statsRoutes';
 import prisma from './prisma/client';
+import { cleanupExpiredAppointmentsService } from './services/appointmentService'; // ADICIONAR ESTA LINHA
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-//Define a origem CORS baseada na variável de ambiente (necessário para o Render).
+// Define a origem CORS baseada na variável de ambiente (necessário para o Render).
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'; 
 
 // --- Middlewares ---
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,
-})); //Configurado para permitir o acesso do Frontend em produção.
+})); // Configurado para permitir o acesso do Frontend em produção.
 app.use(express.json()); // Permite que a API receba JSON no body da requisição
 
 // --- Rotas da API ---
@@ -67,6 +68,12 @@ async function main() {
     // Conectar ao banco de dados 
     await prisma.$connect();
     console.log('✅ Conexão com o banco de dados estabelecida.');
+
+    // Executa a limpeza de registros antigos na inicialização do servidor.
+    const deletedCount = await cleanupExpiredAppointmentsService();
+    if (deletedCount > 0) {
+        console.log(`🧹 Limpeza: ${deletedCount} agendamentos expirados removidos.`);
+    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);

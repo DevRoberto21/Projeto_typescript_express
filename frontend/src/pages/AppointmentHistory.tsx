@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMyAppointments, cancelAppointment } from '../api/appointments';
-// COMENTÁRIO: Importa apenas o tipo 'Appointment', resolvendo o erro 'AppointmentStatus' unused.
 import type { Appointment } from '../types'; 
+import { Link } from 'react-router-dom';
 
-// COMENTÁRIO: Importa estilos e a função getStatusStyle do arquivo dedicado.
 import {
     containerStyle, listContainerStyle, cardStyle, sectionHeaderStyle, 
-    listStyle, errorStyle, cancelButtonStyle, getStatusStyle
-} from './AppointmentHistoryStyles'; // Assumindo este arquivo foi criado
+    listStyle, errorStyle, cancelButtonStyle, getStatusStyle, backToDashboardStyle
+} from './AppointmentHistoryStyles';
 
 
 // Type Guard para tratar erros de Axios
@@ -17,7 +16,8 @@ const isAxiosErrorResponse = (error: unknown): error is AxiosErrorData => (error
 export const AppointmentHistory: React.FC = () => {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // CORREÇÃO: Altera o valor inicial de 'false' para 'null'.
+    const [error, setError] = useState<string | null>(null); 
 
     const loadAppointments = useCallback(async () => {
         setLoading(true);
@@ -27,7 +27,6 @@ export const AppointmentHistory: React.FC = () => {
             // Ordenar do mais recente para o mais antigo
             setAppointments(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         } catch (err: unknown) {
-            // COMENTÁRIO: Trata o erro e extrai a mensagem.
             let errorMessage = 'Erro ao carregar o histórico de agendamentos.';
             if (isAxiosErrorResponse(err)) {
                 errorMessage = err.response?.data?.message || errorMessage;
@@ -52,7 +51,6 @@ export const AppointmentHistory: React.FC = () => {
         // Diferença em horas
         const diffHours = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-        // COMENTÁRIO: Regra de negócio: Requer no mínimo 24h para cancelar.
         if (diffHours < 24) {
             alert("Cancelamento não permitido. É necessário no mínimo 24h de antecedência.");
             return;
@@ -83,6 +81,11 @@ export const AppointmentHistory: React.FC = () => {
         <div style={containerStyle}>
             <h1>Meu Histórico de Agendamentos</h1>
             
+            {/* Botão de atalho para o menu principal */}
+            <Link to="/dashboard" style={backToDashboardStyle}>
+                ← Voltar ao Menu Principal
+            </Link>
+
             {appointments.length === 0 ? (
                 <p style={{ marginTop: '20px' }}>Você ainda não possui agendamentos. <a href="/appointments/new">Agende seu primeiro serviço!</a></p>
             ) : (

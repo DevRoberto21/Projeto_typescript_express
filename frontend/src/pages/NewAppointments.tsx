@@ -1,9 +1,7 @@
 import React from 'react'; 
 import { Link } from 'react-router-dom';
-// COMENTÁRIO: Importa o hook customizado que contém toda a lógica de estado/API.
 import { useAppointmentForm } from '../hooks/useAppointmentForm'; 
 
-// COMENTÁRIO: Importa estilos e funções auxiliares de estilo do arquivo dedicado.
 import { 
     containerStyle, errorStyle, formStyle, stepContainerStyle, inputStyle, 
     slotSelectionContainerStyle, navigationButtonStyle, selectedDateTimeStyle, 
@@ -12,8 +10,15 @@ import {
 } from './newAppointmentsStyles'; 
 
 
+// Lógica para limitar a seleção de data ao último dia do ano atual.
+const getMaxDate = () => {
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-12-31`;
+};
+
+
 export const NewAppointment: React.FC = () => {
-    // COMENTÁRIO: Consome toda a lógica de estado, API e handlers do hook customizado.
+    // Consome toda a lógica de estado, API e handlers do hook customizado.
     const { 
         user, dogs, services, availableTimeSlots, totalPrice,
         step, selectedDate, selectedTime, selectedDogIds, selectedServiceIds,
@@ -68,6 +73,7 @@ export const NewAppointment: React.FC = () => {
                                     onChange={(e) => { setSelectedDate(e.target.value); setSelectedTime(''); }} 
                                     required
                                     min={new Date().toISOString().split('T')[0]} 
+                                    max={getMaxDate()} // VALIDAÇÃO DE ANO APLICADA AQUI
                                     style={inputStyle} 
                                 />
                             </div>

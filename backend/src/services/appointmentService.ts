@@ -1,5 +1,3 @@
-// Caminho: backend/src/services/appointmentService.ts
-
 import prisma from '../prisma/client';
 import { CreateAppointmentInput, UpdateAppointmentInput } from '../schemas/zod/appointmentSchema';
 import { Prisma } from '@prisma/client';
@@ -24,7 +22,7 @@ type AppointmentWithDetails = Prisma.AppointmentGetPayload<{
 async function checkAppointmentConflicts(appointmentStart: Date): Promise<string | null> {
     const appointmentEnd = new Date(appointmentStart.getTime() + APPOINTMENT_DURATION_MS);
 
-    // COMENTÁRIO: Checagem de Bloqueios Admin.
+    // Checagem de Bloqueios Admin.
     const conflictingBlock = await prisma.blockedTimeSlot.findFirst({
         where: {
             dateStart: { lt: appointmentEnd },
@@ -36,7 +34,7 @@ async function checkAppointmentConflicts(appointmentStart: Date): Promise<string
         return `Horário indisponível (Bloqueio Admin). Motivo: ${conflictingBlock.reason}`;
     }
 
-    // COMENTÁRIO: Checagem de Conflito de Agendamento Exato.
+    // Checagem de Conflito de Agendamento Exato.
     const conflictingAppointment = await prisma.appointment.findFirst({
         where: {
             status: { not: 'CANCELADO' },
@@ -105,6 +103,40 @@ export async function createAppointmentService(data: CreateAppointmentInput, use
 }
 
 /**
+ * Deleta agendamentos antigos (mais de 30 dias) que foram CONCLUIDOS ou CANCELADOS.
+ * @returns Quantidade de registros deletados.
+ */
+export async function cleanupExpiredAppointmentsService(): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    // 1. Encontra IDs de agendamentos antigos
+    const appointmentsToClean = await prisma.appointment.findMany({
+        where: {
+            updatedAt: { lt: thirtyDaysAgo },
+            status: { in: ['CONCLUIDO', 'CANCELADO'] } 
+        },
+        select: { id: true }
+    });
+
+    const appointmentIds = appointmentsToClean.map(app => app.id);
+    
+    if (appointmentIds.length === 0) return 0;
+    
+    // 2. Transação para remover dependências M:N e o registro principal
+    const deletedCount = await prisma.$transaction(async (tx) => {
+        // Deleta dependências M:N
+        await tx.appointmentDog.deleteMany({ where: { appointmentId: { in: appointmentIds } } });
+        await tx.appointmentService.deleteMany({ where: { appointmentId: { in: appointmentIds } } });
+        
+        // Deleta os agendamentos principais
+        const result = await tx.appointment.deleteMany({ where: { id: { in: appointmentIds } } });
+        return result.count;
+    });
+
+    return deletedCount;
+}
+
+/**
  * Deleta um agendamento com suas dependências (Foreign Keys).
  * @param id ID do agendamento.
  * @param userId ID do usuário logado (para checar propriedade).
@@ -113,12 +145,12 @@ export async function createAppointmentService(data: CreateAppointmentInput, use
 export async function deleteAppointmentService(id: string, userId: string): Promise<void> {
     const existingAppointment = await prisma.appointment.findUnique({ where: { id } });
 
-    // COMENTÁRIO: Checa se o agendamento existe e pertence ao usuário.
+    // Checa se o agendamento existe e pertence ao usuário.
     if (!existingAppointment || existingAppointment.userId !== userId) {
         throw new Error('Agendamento não encontrado ou não pertence a você.');
     }
 
-    // COMENTÁRIO: Transação para deletar M:N e o registro principal (Foreign Key safety).
+    // Transação para deletar M:N e o registro principal (Foreign Key safety).
     await prisma.$transaction([
         prisma.appointmentDog.deleteMany({ where: { appointmentId: id } }),
         prisma.appointmentService.deleteMany({ where: { appointmentId: id } }),
@@ -139,7 +171,7 @@ export async function updateAppointmentService(id: string, updatedData: UpdateAp
 
     const existingAppointment = await prisma.appointment.findUnique({ where: { id } });
 
-    // COMENTÁRIO: Checa se o agendamento existe e pertence ao usuário.
+    // Checa se o agendamento existe e pertence ao usuário.
     if (!existingAppointment || existingAppointment.userId !== userId) {
         throw new Error('Agendamento não encontrado ou não pertence a você.');
     }

@@ -11,7 +11,7 @@ async function main() {
   // Upsert: Cria se não existir, atualiza se existir
   await prisma.user.upsert({
     where: { email },
-    update: {}, // Se já existe, não faz nada
+    update: {},
     create: {
       email,
       nome: 'Administrador Principal',
@@ -27,6 +27,11 @@ async function main() {
   
   // Criar serviços padrão se não existirem
   const services = [
+    // ADICIONADOS: Serviços básicos para consistência entre ambientes.
+    { name: 'Banho', pricePequeno: 30.0, priceMedio: 40.0, priceGrande: 50.0 },
+    { name: 'Tosa', pricePequeno: 50.0, priceMedio: 70.0, priceGrande: 90.0 },
+    
+    // Serviços que já existiam
     { name: 'Banho Completo', pricePequeno: 40.0, priceMedio: 50.0, priceGrande: 60.0 },
     { name: 'Tosa Higiênica', pricePequeno: 30.0, priceMedio: 40.0, priceGrande: 50.0 },
     { name: 'Tosa Completa', pricePequeno: 60.0, priceMedio: 80.0, priceGrande: 100.0 },
@@ -35,7 +40,7 @@ async function main() {
   for (const service of services) {
     await prisma.service.upsert({
       where: { name: service.name },
-      update: {},
+      update: service, 
       create: service,
     });
   }

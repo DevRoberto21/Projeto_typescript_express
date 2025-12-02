@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppointmentStatus } from '../types'; 
+import type { AppointmentStatus } from '../types';
 
 export const containerStyle: React.CSSProperties = { padding: '30px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Arial, sans-serif' };
 export const listContainerStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' };
@@ -18,6 +18,19 @@ export const cancelButtonStyle: React.CSSProperties = {
     cursor: 'pointer',
     fontWeight: 'bold'
 };
+
+// botão de atalho
+export const backToDashboardStyle: React.CSSProperties = {
+    display: 'inline-block',
+    padding: '10px 15px',
+    backgroundColor: '#007bff',
+    color: 'white',
+    textDecoration: 'none',
+    borderRadius: '4px',
+    fontWeight: 'bold',
+    marginBottom: '20px',
+};
+
 
 /**
  * Retorna estilos de cor baseados no status do agendamento.

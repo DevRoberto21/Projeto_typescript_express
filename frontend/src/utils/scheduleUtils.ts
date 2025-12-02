@@ -1,16 +1,14 @@
-// Define o horário de início e fim em horas (9h às 17h)
 const START_HOUR = 9;
 const END_HOUR = 17;
-const SLOT_DURATION_MINUTES = 30;
+const SLOT_DURATION_MINUTES = 60; // AJUSTADO: De 30 para 60 minutos (1 hora)
 
 /**
- * Gera uma lista de horários de 30 em 30 minutos entre 9h e 17h.
+ * Gera uma lista de horários de 1 em 1 hora entre 9h e 17h.
  * @param date - A data base (usada para o contexto do dia).
  * @returns Array de strings no formato HH:MM.
  */
 export function generateTimeSlots(date: Date): string[] {
     const slots: string[] = [];
-    // CORRIGIDO: De 'let' para 'const'
     const currentTime = new Date(date); 
     currentTime.setHours(START_HOUR, 0, 0, 0); // Começa às 9:00
 
