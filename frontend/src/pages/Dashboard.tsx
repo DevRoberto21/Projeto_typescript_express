@@ -92,12 +92,12 @@ export const Dashboard: React.FC = () => {
       
       {isAdmin && (
         <div style={{ marginTop: '50px' }}>
-          <h1>Controle Administrativo 👑</h1>
+          <h1>Controle Administrativo ⚙️</h1>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
             
             <div style={adminCardStyle}>
-              <h3>Estatísticas de Raças</h3>
-              <p>Estatíscas das raças cadastradas..</p>
+              <h3>Estatísticas</h3>
+              <p>Estatísticas das raças cadastradas.</p>
               <Link to="/admin/stats" style={adminLinkStyle}>Ver Dashboard</Link>
             </div>
 
