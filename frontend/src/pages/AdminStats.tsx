@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-// CORRIGIDO: Use 'import type' para o tipo, e import normal para a função. Adicionando '.ts' ao caminho do API.
 import { fetchDogBreedStatistics } from '../api/stats.ts'; 
 import type { BreedStatistic } from '../api/stats.ts';
 

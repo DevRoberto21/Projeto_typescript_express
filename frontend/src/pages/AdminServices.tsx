@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
-// CORREÇÃO ESSENCIAL: Importar valores (funções) e tipos separadamente devido à configuração do TypeScript.
+
 // 1. Importa as funções de tempo de execução (com a extensão .ts)
 import { fetchAllServices, updateServicePrice } from '../api/services.ts'; 
 // 2. Importa os tipos usando 'import type' (para satisfazer 'verbatimModuleSyntax')

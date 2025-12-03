@@ -97,13 +97,13 @@ export const Dashboard: React.FC = () => {
             
             <div style={adminCardStyle}>
               <h3>Estatísticas de Raças</h3>
-              <p>Dashboard com as raças mais agendadas (API /admin/stats/dog-breeds).</p>
+              <p>Estatíscas das raças cadastradas..</p>
               <Link to="/admin/stats" style={adminLinkStyle}>Ver Dashboard</Link>
             </div>
 
             <div style={adminCardStyle}>
               <h3>Gestão de Agenda</h3>
-              <p>Bloqueie horários ou dias de trabalho (API /admin/blocked-slots).</p>
+              <p>Bloqueie horários ou dias de trabalho.</p>
               <Link to="/admin/schedule" style={adminLinkStyle}>Bloquear Agenda</Link>
             </div>
 
